@@ -28,27 +28,7 @@ CREATE OR REPLACE TRIGGER update_previews_updated_at
     FOR EACH ROW 
     EXECUTE FUNCTION update_updated_at_column();
 
--- Profile creation trigger for new users
--- Create function to handle new user sign ups
-CREATE OR REPLACE FUNCTION public.handle_new_user()
-RETURNS TRIGGER
-LANGUAGE plpgsql
-SECURITY DEFINER SET search_path = ''
-AS $$
-BEGIN
-  INSERT INTO public.profiles (user_id, full_name)
-  VALUES (
-    NEW.id,
-    COALESCE(
-      NEW.raw_user_meta_data->>'full_name',
-      split_part(NEW.email, '@', 1)
-    )
-  );
-  RETURN NEW;
-END;
-$$;
-
--- Create trigger to automatically create profile on user creation
-CREATE OR REPLACE TRIGGER on_auth_user_created
-  AFTER INSERT ON auth.users
-  FOR EACH ROW EXECUTE PROCEDURE public.handle_new_user();
+-- The profile-on-signup trigger (handle_new_user / on_auth_user_created) was
+-- removed with authentication: there are no sign-ups, and the single local
+-- profile row is inserted by
+-- supabase/migrations/20260801000000_remove_auth.sql.

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, useNavigate } from '@tanstack/react-router';
-import { Menu, Plus, LogOut, Crown, Settings, LayoutGrid } from 'lucide-react';
+import { Menu, Plus, Crown, Settings, LayoutGrid } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Tooltip,
@@ -15,8 +15,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { useAuth } from '@/contexts/AuthContext';
-import { supabase, ssoProvider } from '@/lib/supabase';
+import { LOCAL_USER_EMAIL, LOCAL_USER_ID } from '@shared/localUser';
+import { supabase } from '@/lib/supabase';
 import { BILLING_URL } from '@/config/billing';
 import {
   Sheet,
@@ -44,7 +44,6 @@ type SidebarPath = '/' | '/history';
 
 function DesktopSidebar({ isSidebarOpen, setIsSidebarOpen }: SidebarProps) {
   const navigate = useNavigate();
-  const { user, signOut } = useAuth();
   const isMobile = useIsMobile();
   const { data: profile } = useProfile();
 
@@ -57,7 +56,7 @@ function DesktopSidebar({ isSidebarOpen, setIsSidebarOpen }: SidebarProps) {
         .from('conversations')
         .select('*')
         .order('updated_at', { ascending: false })
-        .eq('user_id', user?.id ?? '')
+        .eq('user_id', LOCAL_USER_ID)
         .limit(10)
         .overrideTypes<Array<{ settings: ConversationSettings }>>();
 
@@ -66,24 +65,6 @@ function DesktopSidebar({ isSidebarOpen, setIsSidebarOpen }: SidebarProps) {
       return data;
     },
   });
-
-  const handleSignOut = async () => {
-    try {
-      if (ssoProvider) {
-        // In SSO mode root is the app's only auth surface, so sign-out lands
-        // there. Navigate BEFORE the session dies: on a guarded route the
-        // AuthGuard would otherwise fire the provider redirect the moment the
-        // session goes away and sign the user straight back in.
-        await navigate({ to: '/' });
-        await signOut();
-        return;
-      }
-      await signOut();
-      navigate({ to: '/signin' });
-    } catch (error) {
-      console.error('Error signing out:', error);
-    }
-  };
 
   const sidebarNavigate = (path: SidebarPath) => {
     if (isMobile) {
@@ -99,10 +80,10 @@ function DesktopSidebar({ isSidebarOpen, setIsSidebarOpen }: SidebarProps) {
           <UserAvatar />
           <div className="flex flex-col">
             <span className="text-sm font-medium text-adam-text-primary">
-              {profile?.full_name || user?.email?.split('@')[0] || 'User'}
+              {profile?.full_name || 'User'}
             </span>
             <span className="text-xs text-adam-text-tertiary dark:text-gray-400">
-              {user?.email}
+              {LOCAL_USER_EMAIL}
             </span>
           </div>
         </div>
@@ -143,11 +124,9 @@ function DesktopSidebar({ isSidebarOpen, setIsSidebarOpen }: SidebarProps) {
           >
             {isSidebarOpen ? (
               <div className="flex w-full">
-                <img
-                  className="mx-auto h-8 w-full"
-                  src={`${import.meta.env.BASE_URL}/cadam-logo.svg`}
-                  alt="Logo"
-                />
+                <span className="mx-auto flex h-8 items-center text-2xl font-bold tracking-[0.2em] text-adam-text-primary">
+                  GEXUS
+                </span>
               </div>
             ) : (
               <img
@@ -375,12 +354,10 @@ function DesktopSidebar({ isSidebarOpen, setIsSidebarOpen }: SidebarProps) {
                 <div className="flex items-center space-x-2 p-2">
                   <div className="flex flex-col space-y-1">
                     <p className="text-sm font-medium text-adam-text-primary">
-                      {profile?.full_name ||
-                        user?.email?.split('@')[0] ||
-                        'User'}
+                      {profile?.full_name || 'User'}
                     </p>
                     <p className="text-xs text-muted-foreground">
-                      {user?.email}
+                      {LOCAL_USER_EMAIL}
                     </p>
                   </div>
                 </div>
@@ -404,11 +381,6 @@ function DesktopSidebar({ isSidebarOpen, setIsSidebarOpen }: SidebarProps) {
                     </a>
                   </DropdownMenuItem>
                 </DropdownMenuGroup>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={handleSignOut}>
-                  <LogOut className="mr-2 h-4 w-4 text-adam-text-primary" />
-                  <span className="text-adam-text-primary">Sign out</span>
-                </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
@@ -456,12 +428,6 @@ function MobileSidebar({
 
 export function Sidebar({ isSidebarOpen, setIsSidebarOpen }: SidebarProps) {
   const isMobile = useIsMobile();
-  const { user } = useAuth();
-
-  // Don't display the sidebar if the user isn't logged in
-  if (user == null) {
-    return <></>;
-  }
 
   return isMobile ? (
     <MobileSidebar

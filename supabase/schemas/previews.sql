@@ -13,9 +13,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS previews_pkey ON "public"."previews" USING btr
 
 ALTER TABLE "public"."previews" ADD CONSTRAINT "previews_pkey" PRIMARY KEY USING INDEX "previews_pkey";
 
-ALTER TABLE "public"."previews" ADD CONSTRAINT "previews_user_id_fkey" FOREIGN KEY (user_id) REFERENCES auth.users(id) ON UPDATE CASCADE ON DELETE CASCADE not valid;
-
-ALTER TABLE "public"."previews" VALIDATE CONSTRAINT "previews_user_id_fkey";
+-- No FK into auth.users: see supabase/migrations/20260801000000_remove_auth.sql.
 
 ALTER TABLE "public"."previews" ADD CONSTRAINT "previews_conversation_id_fkey" FOREIGN KEY (conversation_id) REFERENCES conversations(id) ON UPDATE CASCADE ON DELETE CASCADE not valid;
 
@@ -26,6 +24,5 @@ ALTER TABLE "public"."previews" ADD CONSTRAINT "previews_mesh_id_fkey" FOREIGN K
 ALTER TABLE "public"."previews" VALIDATE CONSTRAINT "previews_mesh_id_fkey";
 
 
-ALTER TABLE "public"."previews" ENABLE ROW LEVEL SECURITY;
-
-CREATE POLICY "Users can manage their own previews" ON "public"."previews" USING ( (SELECT "auth"."uid"()) = "user_id" );
+-- RLS intentionally disabled: the policy was keyed on auth.uid().
+ALTER TABLE "public"."previews" DISABLE ROW LEVEL SECURITY;

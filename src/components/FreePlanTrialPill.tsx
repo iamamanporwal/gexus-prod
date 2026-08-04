@@ -1,9 +1,10 @@
 import { useState } from 'react';
-import { getLevel, useAuth } from '@/contexts/AuthContext';
-import { TrialDialog } from '@/components/auth/TrialDialog';
+import { getLevel } from '@/lib/billing';
+import { useBilling } from '@/hooks/useBilling';
+import { TrialDialog } from '@/components/billing/TrialDialog';
 
 /**
- * "Free plan | Start free trial" pill shown above the greeting for signed-in
+ * "Free plan | Start free trial" pill shown above the greeting for
  * free-plan users who haven't used their trial yet — the CADAM port of the
  * workspace pill. It renders nothing until billing has resolved (so it never
  * flashes on a paying user) and disappears once the trial has been used.
@@ -20,19 +21,19 @@ import { TrialDialog } from '@/components/auth/TrialDialog';
  * animation, which a `{open && ...}` unmount would skip.
  */
 export function FreePlanTrialPill() {
-  const { user, billing, isLoading } = useAuth();
+  const { billing, isBillingLoading } = useBilling();
   const [trialOpen, setTrialOpen] = useState(false);
   const [dialogMounted, setDialogMounted] = useState(false);
 
   const level = getLevel(billing);
   const hasTrialed = billing?.user.hasTrialed ?? false;
 
-  // Only signed-in free-plan users who can still start a trial, and only once
-  // billing has resolved. The `!billing` guard matters because the billing
-  // query throws on error — leaving `isLoading` false but `billing` null — and
+  // Only free-plan users who can still start a trial, and only once billing
+  // has resolved. The `!billing` guard matters because the billing query
+  // throws on error — leaving the loading flag false but `billing` null — and
   // `getLevel(null)` reads as 'free'. Without it, a paid user whose billing
   // fetch transiently fails would be shown the trial pill.
-  if (!user || isLoading || !billing || level !== 'free' || hasTrialed) {
+  if (isBillingLoading || !billing || level !== 'free' || hasTrialed) {
     return null;
   }
 

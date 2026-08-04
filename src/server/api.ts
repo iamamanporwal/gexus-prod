@@ -1,5 +1,4 @@
-import type { User } from '@supabase/supabase-js';
-import { getAnonSupabaseClient } from './supabaseClient';
+import { LOCAL_USER, type LocalUser } from '@shared/localUser';
 
 export const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -31,13 +30,12 @@ export function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
 }
 
-export async function requireUser(request: Request): Promise<User> {
-  const supabase = getAnonSupabaseClient({
-    global: {
-      headers: { Authorization: request.headers.get('Authorization') ?? '' },
-    },
-  });
-  const { data, error } = await supabase.auth.getUser();
-  if (error || !data.user?.email) throw new Error('Unauthorized');
-  return data.user;
+// Resolves the caller's identity. Authentication has been removed, so this no
+// longer inspects the request — every request is the one local user.
+//
+// Kept as a function (rather than inlining LOCAL_USER at each call site) so the
+// handlers keep a single, obvious place where identity enters the server, and
+// so `isUnauthorizedError` stays meaningful if a caller ever reintroduces one.
+export function requireUser(_request: Request): LocalUser {
+  return LOCAL_USER;
 }

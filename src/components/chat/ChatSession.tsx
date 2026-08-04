@@ -3,7 +3,7 @@ import { SuggestionPills } from '@/components/chat/SuggestionPills';
 import { LimitReachedMessage } from '@/components/LimitReachedMessage';
 import TextAreaChat from '@/components/TextAreaChat';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { useAuth } from '@/contexts/AuthContext';
+import { LOCAL_USER_ID } from '@shared/localUser';
 import { useCachedAiChat } from '@/hooks/useCachedAiChat';
 import { useToast } from '@/hooks/use-toast';
 import { previewScadColoredViaToolWorker } from '@/worker/toolWorker';
@@ -157,7 +157,6 @@ export function ChatSession({
   onViewMesh,
   onLoadingChange,
 }: ChatSessionProps) {
-  const { user } = useAuth();
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
@@ -165,12 +164,10 @@ export function ChatSession({
   // Transport — strips client state out of the wire body. Server reads the
   // branch from `conversations.current_message_leaf_id` and walks parents
   // in the DB, so anything the SDK might put in `messages` is ignored.
+  //
+  // No Authorization header: there are no sessions, and the chat endpoint
+  // resolves the local identity itself.
   // ───────────────────────────────────────────────────────────────────────
-  const authHeaders = useCallback(async (): Promise<Record<string, string>> => {
-    const token = (await supabase.auth.getSession()).data.session?.access_token;
-    return token ? { Authorization: `Bearer ${token}` } : {};
-  }, []);
-
   // The chat endpoint returns 402 when the user is out of tokens. The AI
   // SDK transport doesn't expose the response status on its `onError`
   // hook — we have to intercept at the fetch layer. On 402 we invalidate
@@ -209,7 +206,6 @@ export function ChatSession({
             ? 'creative-chat'
             : 'parametric-chat',
         ),
-        headers: authHeaders,
         fetch: billingAwareFetch,
         prepareSendMessagesRequest: ({ body }) => ({
           body: {
@@ -219,7 +215,7 @@ export function ChatSession({
           },
         }),
       }),
-    [authHeaders, billingAwareFetch, conversation.id, conversation.type, model],
+    [billingAwareFetch, conversation.id, conversation.type, model],
   );
 
   // ───────────────────────────────────────────────────────────────────────
@@ -462,24 +458,22 @@ export function ChatSession({
         const { stl, off } = await previewScadColoredViaToolWorker(input.code);
         let inspectionUploaded = false;
         try {
-          if (user?.id) {
-            const inspectionDataUrl = await generateInspectionPreview({
-              stl,
-              off,
+          const inspectionDataUrl = await generateInspectionPreview({
+            stl,
+            off,
+          });
+          const inspectionBlob = await fetch(inspectionDataUrl).then(
+            (response) => response.blob(),
+          );
+          const inspectionPath = `${LOCAL_USER_ID}/${conversation.id}/inspection-preview-${toolCall.toolCallId}`;
+          const { error: inspectionUploadError } = await supabase.storage
+            .from('images')
+            .upload(inspectionPath, inspectionBlob, {
+              contentType: 'image/png',
+              upsert: true,
             });
-            const inspectionBlob = await fetch(inspectionDataUrl).then(
-              (response) => response.blob(),
-            );
-            const inspectionPath = `${user.id}/${conversation.id}/inspection-preview-${toolCall.toolCallId}`;
-            const { error: inspectionUploadError } = await supabase.storage
-              .from('images')
-              .upload(inspectionPath, inspectionBlob, {
-                contentType: 'image/png',
-                upsert: true,
-              });
-            if (inspectionUploadError) throw inspectionUploadError;
-            inspectionUploaded = true;
-          }
+          if (inspectionUploadError) throw inspectionUploadError;
+          inspectionUploaded = true;
         } catch (uploadError) {
           console.warn(
             'Failed to upload OpenSCAD inspection preview:',
@@ -488,26 +482,24 @@ export function ChatSession({
         }
 
         try {
-          if (user?.id) {
-            let thumbnailDataUrl: string | null = null;
-            if (off) {
-              thumbnailDataUrl = await generateColoredPreview(off);
-            }
-            if (!thumbnailDataUrl) {
-              thumbnailDataUrl = await generatePreview(stl, 'stl');
-            }
-            const thumbnailBlob = await fetch(thumbnailDataUrl).then(
-              (response) => response.blob(),
-            );
-            const previewPath = `${user.id}/${conversation.id}/preview-${toolCall.toolCallId}`;
-            const { error: thumbnailUploadError } = await supabase.storage
-              .from('images')
-              .upload(previewPath, thumbnailBlob, {
-                contentType: 'image/png',
-                upsert: true,
-              });
-            if (thumbnailUploadError) throw thumbnailUploadError;
+          let thumbnailDataUrl: string | null = null;
+          if (off) {
+            thumbnailDataUrl = await generateColoredPreview(off);
           }
+          if (!thumbnailDataUrl) {
+            thumbnailDataUrl = await generatePreview(stl, 'stl');
+          }
+          const thumbnailBlob = await fetch(thumbnailDataUrl).then((response) =>
+            response.blob(),
+          );
+          const previewPath = `${LOCAL_USER_ID}/${conversation.id}/preview-${toolCall.toolCallId}`;
+          const { error: thumbnailUploadError } = await supabase.storage
+            .from('images')
+            .upload(previewPath, thumbnailBlob, {
+              contentType: 'image/png',
+              upsert: true,
+            });
+          if (thumbnailUploadError) throw thumbnailUploadError;
         } catch (uploadError) {
           console.warn('Failed to upload OpenSCAD thumbnail:', uploadError);
         }
@@ -569,7 +561,7 @@ export function ChatSession({
         );
       }
     },
-    [conversation.id, onToolOutput, onViewArtifact, toast, user?.id],
+    [conversation.id, onToolOutput, onViewArtifact, toast],
   );
 
   // ───────────────────────────────────────────────────────────────────────

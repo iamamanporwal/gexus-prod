@@ -36,6 +36,7 @@ import {
 } from './chatToolPersistence';
 import { handleMeshRequest } from './mesh';
 import { getAnonSupabaseClient } from './supabaseClient';
+import { LOCAL_USER } from '@shared/localUser';
 
 /**
  * USD list price per **million** tokens, keyed by the same model IDs the
@@ -826,7 +827,6 @@ function creativeTools({
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
-              Authorization: req.headers.get('Authorization') ?? '',
             },
             body: JSON.stringify({
               conversationId: conversation.id,
@@ -984,18 +984,11 @@ export async function handleAiChatRequest(req: Request) {
     return jsonResponse({ error: 'Method not allowed' }, 405);
   }
 
-  const supabaseClient = getAnonSupabaseClient({
-    global: {
-      headers: { Authorization: req.headers.get('Authorization') ?? '' },
-    },
-  });
-  const {
-    data: { user },
-  } = await supabaseClient.auth.getUser();
-
-  if (!user?.id || !user.email) {
-    return jsonResponse({ error: 'Unauthorized' }, 401);
-  }
+  // No bearer token to forward and no user to look up: authentication has been
+  // removed. RLS is disabled on the app tables, so the plain anon client has
+  // the access this handler needs.
+  const supabaseClient = getAnonSupabaseClient();
+  const user = LOCAL_USER;
 
   const rawBody = await req.json().catch(() => null);
   if (!isChatBody(rawBody)) {

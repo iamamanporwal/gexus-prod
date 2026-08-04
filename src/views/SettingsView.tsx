@@ -1,23 +1,21 @@
 import { Button } from '@/components/ui/button';
-import { getLevel, useAuth } from '@/contexts/AuthContext';
+import { getLevel } from '@/lib/billing';
+import { useBilling } from '@/hooks/useBilling';
+import { LOCAL_USER_EMAIL } from '@shared/localUser';
 import { Loader2, Sparkles } from 'lucide-react';
 import { Link } from '@tanstack/react-router';
 import { useTokenPackPurchase } from '@/services/subscriptionService';
 import { cn } from '@/lib/utils';
-import { DeleteAccountDialog } from '@/components/auth/DeleteAccountDialog';
 import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
-import { useMutation } from '@tanstack/react-query';
 import { useEffect, useRef, useState } from 'react';
 import { Input } from '@/components/ui/input';
 import * as Sentry from '@sentry/react';
 import { useProfile, useUpdateProfile } from '@/services/profileService';
-import { AvatarUpdateDialog } from '@/components/auth/AvatarUpdateDialog';
+import { AvatarUpdateDialog } from '@/components/profile/AvatarUpdateDialog';
 import { useTokenPacks } from '@/hooks/useTokenPacks';
 import { PLAN_DISPLAY_NAMES } from '@/config/plan-features';
 import { BILLING_URL, BILLING_UPGRADE_URL } from '@/config/billing';
-import { accountUrl, ssoManaged } from '@/lib/supabase';
-import { UserAvatar } from '@/components/chat/UserAvatar';
 
 function formatPeriodEnd(iso: string | null | undefined): string | null {
   if (!iso) return null;
@@ -31,7 +29,7 @@ function formatPeriodEnd(iso: string | null | undefined): string | null {
 }
 
 export default function SettingsView() {
-  const { billing, user, resetPassword } = useAuth();
+  const { billing } = useBilling();
   const level = getLevel(billing);
   const freeTokens = billing?.tokens.free ?? 0;
   const subscriptionTokens = billing?.tokens.subscription ?? 0;
@@ -112,33 +110,10 @@ export default function SettingsView() {
     );
   };
 
-  const { mutate: handleResetPassword, isPending: isResetLoading } =
-    useMutation({
-      mutationFn: async () => {
-        if (!user?.email) throw new Error('User email not found');
-        await resetPassword(user?.email);
-      },
-      onSuccess: () => {
-        toast({
-          title: 'Success',
-          description:
-            'Password reset instructions have been sent to your email',
-        });
-      },
-      onError: () => {
-        toast({
-          title: 'Error',
-          description: 'Failed to reset password',
-          variant: 'destructive',
-        });
-      },
-    });
-
-  // When SSO owns the identity and an external account page is configured,
-  // profile / email / password / delete are managed there (the
-  // accounts.google.com model) rather than edited in-app. Self-host (no SSO
-  // or no account URL) keeps the native controls. `ssoManaged` is imported from
-  // @/lib/supabase so every SSO gate shares one definition.
+  // The password-reset control and the SSO "manage account externally" branch
+  // are gone with authentication — there are no credentials to reset and no
+  // identity provider. Name, avatar and notifications are still editable
+  // because they live in the local `profiles` row.
 
   const tierLabel = `Adam ${PLAN_DISPLAY_NAMES[level]}`;
 
@@ -168,130 +143,72 @@ export default function SettingsView() {
               Account
             </h2>
 
-            {ssoManaged ? (
-              <div className="flex flex-col gap-5">
-                <div className="flex items-center gap-3">
-                  <UserAvatar className="h-10 w-10" />
-                  <div className="min-w-0">
-                    <div className="truncate text-sm text-adam-neutral-50">
-                      {profile?.full_name || user?.email}
-                    </div>
-                    <div className="mt-0.5 truncate text-xs text-adam-neutral-200">
-                      {user?.email}
-                    </div>
-                  </div>
-                </div>
-                <div className="flex items-center justify-between gap-4 border-t border-adam-neutral-800 pt-5">
-                  <div className="min-w-0">
-                    <div className="text-sm text-adam-neutral-50">
-                      Manage account
-                    </div>
-                    <div className="mt-0.5 text-xs leading-relaxed text-adam-neutral-200">
-                      Update your name, email, password, and account details in
-                      your account.
-                    </div>
-                  </div>
-                  <a
-                    href={accountUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex-shrink-0"
-                  >
-                    <Button variant="dark" className="rounded-full font-light">
-                      Manage account
-                    </Button>
-                  </a>
-                </div>
-              </div>
-            ) : (
-              <div className="divide-y divide-adam-neutral-800">
-                <div className="flex items-center justify-between gap-4 pb-5">
-                  <div className="flex min-w-0 flex-1 items-center gap-3">
-                    <AvatarUpdateDialog />
-                    {editingName ? (
-                      <Input
-                        ref={nameInputRef}
-                        value={newName}
-                        className="h-9 w-full max-w-xs"
-                        onChange={(e) => setNewName(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter' && !e.shiftKey) {
-                            e.preventDefault();
-                            handleUpdateName();
-                          }
-                        }}
-                      />
-                    ) : (
-                      <div className="min-w-0 truncate text-sm text-adam-neutral-50">
-                        {profile?.full_name || user?.email}
-                      </div>
-                    )}
-                  </div>
+            <div className="divide-y divide-adam-neutral-800">
+              <div className="flex items-center justify-between gap-4 pb-5">
+                <div className="flex min-w-0 flex-1 items-center gap-3">
+                  <AvatarUpdateDialog />
                   {editingName ? (
-                    <div className="flex flex-shrink-0 items-center gap-2">
-                      <Button
-                        onClick={() => handleUpdateName()}
-                        variant="light"
-                        disabled={isUpdateLoading}
-                        className="rounded-full font-light"
-                      >
-                        {isUpdateLoading ? (
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                        ) : (
-                          'Save'
-                        )}
-                      </Button>
-                      <Button
-                        onClick={() => {
-                          setEditingName(false);
-                          setNewName(profile?.full_name || '');
-                        }}
-                        variant="dark"
-                        className="rounded-full font-light"
-                      >
-                        Cancel
-                      </Button>
-                    </div>
+                    <Input
+                      ref={nameInputRef}
+                      value={newName}
+                      className="h-9 w-full max-w-xs"
+                      onChange={(e) => setNewName(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && !e.shiftKey) {
+                          e.preventDefault();
+                          handleUpdateName();
+                        }
+                      }}
+                    />
                   ) : (
-                    <Button
-                      onClick={() => setEditingName(true)}
-                      variant="dark"
-                      className="flex-shrink-0 rounded-full font-light"
-                    >
-                      Edit
-                    </Button>
+                    <div className="min-w-0 truncate text-sm text-adam-neutral-50">
+                      {profile?.full_name || LOCAL_USER_EMAIL}
+                    </div>
                   )}
                 </div>
-
-                <div className="py-5">
-                  <div className="text-sm text-adam-neutral-50">Email</div>
-                  <div className="mt-0.5 truncate text-xs text-adam-neutral-200">
-                    {user?.email}
+                {editingName ? (
+                  <div className="flex flex-shrink-0 items-center gap-2">
+                    <Button
+                      onClick={() => handleUpdateName()}
+                      variant="light"
+                      disabled={isUpdateLoading}
+                      className="rounded-full font-light"
+                    >
+                      {isUpdateLoading ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        'Save'
+                      )}
+                    </Button>
+                    <Button
+                      onClick={() => {
+                        setEditingName(false);
+                        setNewName(profile?.full_name || '');
+                      }}
+                      variant="dark"
+                      className="rounded-full font-light"
+                    >
+                      Cancel
+                    </Button>
                   </div>
-                </div>
-
-                <div className="flex items-center justify-between gap-4 pt-5">
-                  <div className="min-w-0">
-                    <div className="text-sm text-adam-neutral-50">Password</div>
-                    <div className="mt-0.5 text-xs text-adam-neutral-200">
-                      Send a reset link to your email
-                    </div>
-                  </div>
+                ) : (
                   <Button
-                    onClick={() => handleResetPassword()}
-                    disabled={isResetLoading}
+                    onClick={() => setEditingName(true)}
                     variant="dark"
                     className="flex-shrink-0 rounded-full font-light"
                   >
-                    {isResetLoading ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      'Reset Password'
-                    )}
+                    Edit
                   </Button>
+                )}
+              </div>
+
+              <div className="py-5">
+                <div className="text-sm text-adam-neutral-50">Email</div>
+                <div className="mt-0.5 truncate text-xs text-adam-neutral-200">
+                  {LOCAL_USER_EMAIL}
                 </div>
               </div>
-            )}
+            </div>
           </section>
 
           {/* Notifications */}
@@ -462,35 +379,10 @@ export default function SettingsView() {
             </div>
           </section>
 
-          {/* Data & Privacy — when SSO owns the identity, account deletion is
-              handled in the Adam account ("Manage account" above), so the
-              in-app delete is hidden to avoid a partial, one-sided delete. */}
-          {!ssoManaged && (
-            <section className="rounded-xl border border-adam-neutral-800 bg-adam-background-2 p-6">
-              <h2 className="mb-5 text-sm font-medium text-adam-neutral-50">
-                Data and privacy
-              </h2>
-
-              <div className="flex items-start justify-between gap-4">
-                <div className="min-w-0 flex-1">
-                  <div className="text-sm text-adam-neutral-50">
-                    Delete account
-                  </div>
-                  <div className="mt-0.5 text-xs leading-relaxed text-adam-neutral-200">
-                    Permanently delete your account and all associated data.
-                  </div>
-                </div>
-                <DeleteAccountDialog>
-                  <Button
-                    className="flex-shrink-0 rounded-full font-light"
-                    variant="destructive"
-                  >
-                    Delete
-                  </Button>
-                </DeleteAccountDialog>
-              </div>
-            </section>
-          )}
+          {/* The "Data and privacy" section is gone with authentication:
+              account deletion tore down an auth.users row that no longer
+              exists. To wipe local data, reset the database instead
+              (`npx supabase db reset`). */}
 
           <div className="mt-2 flex items-center justify-center gap-3 text-xs text-adam-neutral-300">
             <Link

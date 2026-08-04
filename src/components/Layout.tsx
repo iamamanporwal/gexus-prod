@@ -4,14 +4,11 @@ import { PanelLeft } from 'lucide-react';
 
 import { Sidebar } from './Sidebar';
 import { CreditsButton } from './CreditsButton';
-import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { useIsMobile } from '@/hooks/useIsMobile';
-import { Loader2 } from 'lucide-react';
 import { LayoutContext } from '@/contexts/LayoutContext';
 
 export function Layout() {
-  const { user, isLoading } = useAuth();
   const isMobile = useIsMobile();
   const location = useLocation();
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
@@ -34,28 +31,8 @@ export function Layout() {
     }
   }, [hasLoadedSidebarPreference, isSidebarOpen]);
 
-  if (isLoading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-adam-bg-secondary-dark">
-        <Loader2 className="h-8 w-8 animate-spin text-adam-blue" />
-      </div>
-    );
-  }
-
-  if (!user) {
-    return (
-      <div className="flex h-dvh overflow-hidden">
-        <Sidebar
-          isSidebarOpen={isSidebarOpen}
-          setIsSidebarOpen={setIsSidebarOpen}
-        />
-        <LayoutContext.Provider value={{ isSidebarOpen }}>
-          <Outlet />
-        </LayoutContext.Provider>
-      </div>
-    );
-  }
-
+  // The loading and signed-out branches are gone: the local identity is a
+  // constant, so there is nothing to wait for and no signed-out state.
   return (
     <div className="h-dvh overflow-hidden">
       <div className="flex h-dvh transition-all ease-in-out">
@@ -66,8 +43,7 @@ export function Layout() {
         <div className="relative flex-1 overflow-auto bg-adam-bg-dark">
           {/* Credits button — home page only. Mirrors the sidebar-toggle's
               movement: eases inward when the sidebar opens (so it lands
-              inside the rounded panel) and back to the edge when it closes.
-              The `!user` branch above returns early, so no `user` guard here. */}
+              inside the rounded panel) and back to the edge when it closes. */}
           {location.pathname === '/' && (
             <div
               className={`absolute z-20 flex items-center gap-2 transition-all duration-300 ease-in-out ${
@@ -80,7 +56,7 @@ export function Layout() {
             </div>
           )}
           {/* Toggle Sidebar Button - Positioned on main content area */}
-          {!isMobile && user && (
+          {!isMobile && (
             <Button
               variant="ghost"
               size="icon"

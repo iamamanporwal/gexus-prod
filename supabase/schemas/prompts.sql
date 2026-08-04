@@ -9,10 +9,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS prompts_pkey ON "public"."prompts" USING btree
 
 ALTER TABLE "public"."prompts" ADD CONSTRAINT "prompts_pkey" PRIMARY KEY USING INDEX "prompts_pkey";
 
-ALTER TABLE "public"."prompts" ADD CONSTRAINT "prompts_user_id_fkey" FOREIGN KEY (user_id) REFERENCES auth.users(id) ON UPDATE CASCADE ON DELETE CASCADE not valid;
+-- No FK into auth.users: see supabase/migrations/20260801000000_remove_auth.sql.
 
-ALTER TABLE "public"."prompts" VALIDATE CONSTRAINT "prompts_user_id_fkey";
-
-CREATE POLICY "Users can view their own prompts" ON "public"."prompts" FOR SELECT USING ((SELECT "auth"."uid"()) = "user_id");
-
-ALTER TABLE "public"."prompts" ENABLE ROW LEVEL SECURITY;
+-- RLS intentionally disabled: the policy was keyed on auth.uid().
+ALTER TABLE "public"."prompts" DISABLE ROW LEVEL SECURITY;

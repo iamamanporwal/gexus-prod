@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Input } from '@/components/ui/input';
 import { supabase } from '@/lib/supabase';
-import { useAuth } from '@/contexts/AuthContext';
+import { LOCAL_USER_ID } from '@shared/localUser';
 import { format } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -44,7 +44,6 @@ export function HistoryView() {
   const [newTitle, setNewTitle] = useState('');
   const [open, setOpen] = useState(false);
   const navigate = useNavigate();
-  const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const shouldReduceMotion = useReducedMotion();
@@ -58,7 +57,6 @@ export function HistoryView() {
 
   const conversationQuery = useQuery<HistoryConversation[]>({
     queryKey: ['conversations'],
-    enabled: !!user,
     queryFn: async () => {
       const { data: conversationsData, error: conversationsError } =
         await supabase
@@ -66,7 +64,7 @@ export function HistoryView() {
           .select(
             `*, first_message:messages(parts), messagesCount:messages(count)`,
           )
-          .eq('user_id', user?.id ?? '')
+          .eq('user_id', LOCAL_USER_ID)
           .order('updated_at', { ascending: false })
           .order('created_at', { ascending: false })
           .limit(1, { referencedTable: 'first_message' })
@@ -118,11 +116,11 @@ export function HistoryView() {
 
       supabase.storage
         .from('images')
-        .list(`${user?.id}/${conversationId}`)
+        .list(`${LOCAL_USER_ID}/${conversationId}`)
         .then(({ data: list }) => {
           if (list) {
             const filesToRemove = list.map(
-              (file) => `${user?.id}/${conversationId}/${file.name}`,
+              (file) => `${LOCAL_USER_ID}/${conversationId}/${file.name}`,
             );
             supabase.storage.from('images').remove(filesToRemove);
           }

@@ -1,10 +1,9 @@
-import { useNavigate, Link } from '@tanstack/react-router';
-import { LogIn } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { useNavigate } from '@tanstack/react-router';
 import { useToast } from '@/hooks/use-toast';
-import { useAuth } from '@/contexts/AuthContext';
-import { supabase, ssoProvider } from '@/lib/supabase';
-import { signInWithSsoProvider } from '@/lib/ssoAuth';
+import { errorMessage } from '@/lib/errorMessage';
+import { LOCAL_USER_ID } from '@shared/localUser';
+import { useBilling } from '@/hooks/useBilling';
+import { supabase } from '@/lib/supabase';
 import TextAreaChat from '@/components/TextAreaChat';
 import { useQueryClient, useMutation } from '@tanstack/react-query';
 import { useState, useMemo, useEffect } from 'react';
@@ -34,20 +33,19 @@ import { persistUserMessage } from '@/services/messageService';
 export function PromptView() {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { user, billing, isLoading } = useAuth();
+  const { billing, isBillingLoading } = useBilling();
   const totalTokens = billing?.tokens.total ?? 0;
   const { data: profile, isLoading: isProfileLoading } = useProfile();
   const { isSidebarOpen } = useLayoutContext();
   const queryClient = useQueryClient();
 
   const firstName = useMemo(() => {
-    // Wait until the profile query resolves for signed-in users so the
-    // greeting doesn't flash the email local-part before snapping to the
-    // real first name.
-    if (user && isProfileLoading) return '';
-    const source = profile?.full_name || user?.email?.split('@')[0] || '';
+    // Wait until the profile query resolves so the greeting doesn't flash a
+    // blank name before snapping to the real first name.
+    if (isProfileLoading) return '';
+    const source = profile?.full_name || '';
     return source.trim().split(/\s+/)[0] || '';
-  }, [profile?.full_name, user, isProfileLoading]);
+  }, [profile?.full_name, isProfileLoading]);
 
   const [type, setType] = useState<'parametric' | 'creative'>('parametric');
 
@@ -73,14 +71,14 @@ export function PromptView() {
   );
 
   const lowPrompts = useMemo(() => {
-    if (isLoading) return false;
+    if (isBillingLoading) return false;
     return totalTokens > 0 && totalTokens <= 10;
-  }, [totalTokens, isLoading]);
+  }, [totalTokens, isBillingLoading]);
 
   const limitReached = useMemo(() => {
-    if (isLoading) return false;
+    if (isBillingLoading) return false;
     return totalTokens <= 0;
-  }, [totalTokens, isLoading]);
+  }, [totalTokens, isBillingLoading]);
 
   // Trigger fade in on mount
   useEffect(() => {
@@ -103,25 +101,8 @@ export function PromptView() {
     }
   }, []); // Empty dependency array means it only calculates once per page load
 
-  // In SSO mode the provider redirect IS the sign-in: the existing signed-out
-  // affordances below fire it directly instead of navigating to the native
-  // auth routes (which bounce back to root in this mode). Same UI, same
-  // pixels — only where the click goes changes.
-  const { mutate: signInWithSso } = useMutation({
-    mutationFn: () => signInWithSsoProvider('/'),
-    onError: (error) => {
-      toast({
-        title: 'Whoopsies',
-        description:
-          error instanceof Error ? error.message : 'Something went wrong',
-        variant: 'destructive',
-      });
-    },
-  });
-
   const { mutate: handleGenerate, isPending: isGenerating } = useMutation({
     mutationFn: async (parts: AppUIMessage['parts']) => {
-      if (!user?.id) throw new Error('User must be authenticated');
       const conversationId = draftConversationId;
 
       const text = parts
@@ -150,7 +131,7 @@ export function PromptView() {
         .insert([
           {
             id: conversationId,
-            user_id: user.id,
+            user_id: LOCAL_USER_ID,
             title: 'New Conversation',
             type: type,
             settings: {
@@ -166,7 +147,7 @@ export function PromptView() {
       await ensureInputRecords({
         parts,
         conversationId: conversation.id,
-        userId: user.id,
+        userId: LOCAL_USER_ID,
       });
       if (parts.length === 0) throw new Error('No message parts to send');
 
@@ -190,13 +171,6 @@ export function PromptView() {
           api: apiUrl(
             type === 'creative' ? 'creative-chat' : 'parametric-chat',
           ),
-          headers: async (): Promise<Record<string, string>> => {
-            const accessToken = (await supabase.auth.getSession()).data.session
-              ?.access_token;
-            const headers: Record<string, string> = {};
-            if (accessToken) headers.Authorization = `Bearer ${accessToken}`;
-            return headers;
-          },
           prepareSendMessagesRequest: ({ body }) => ({
             body: {
               conversationId: conversation.id,
@@ -231,8 +205,7 @@ export function PromptView() {
       Sentry.captureException(error);
       toast({
         title: 'Error',
-        description:
-          error instanceof Error ? error.message : 'Failed to process prompt',
+        description: errorMessage(error, 'Failed to process prompt'),
         variant: 'destructive',
       });
     },
@@ -242,7 +215,7 @@ export function PromptView() {
     <div
       className={cn(
         'relative h-full min-h-full w-full transition-all duration-300 ease-in-out',
-        isSidebarOpen && !isMobile && user?.id && 'pb-6 pr-6 pt-6',
+        isSidebarOpen && !isMobile && 'pb-6 pr-6 pt-6',
       )}
     >
       <div
@@ -250,33 +223,9 @@ export function PromptView() {
           'h-full min-h-full bg-adam-bg-secondary-dark',
           isSidebarOpen &&
             !isMobile &&
-            user?.id &&
             'rounded-xl shadow-[0_0_15px_rgba(0,0,0,0.1)]',
         )}
       >
-        {!user && (
-          <div className="fixed right-4 top-4 z-10 flex flex-row gap-2">
-            <Button
-              variant="light"
-              onClick={() =>
-                ssoProvider ? signInWithSso() : navigate({ to: '/signup' })
-              }
-              className="w-auto"
-            >
-              Sign Up
-            </Button>
-            <Button
-              onClick={() =>
-                ssoProvider ? signInWithSso() : navigate({ to: '/signin' })
-              }
-              className="w-auto"
-            >
-              <LogIn className="mr-2 h-4 w-4" />
-              Sign In
-            </Button>
-          </div>
-        )}
-
         <main className="relative flex h-full w-full flex-col items-center justify-center px-4 md:px-8">
           <div className="mx-auto flex max-w-3xl flex-col items-center justify-center">
             {/* The pill floats above the greeting (absolute, out of flow) so
@@ -307,17 +256,7 @@ export function PromptView() {
                   onSubmit={handleGenerate}
                   conversation={{
                     id: draftConversationId,
-                    user_id: user?.id ?? '',
-                  }}
-                  onFocus={() => {
-                    if (!user) {
-                      if (ssoProvider) {
-                        signInWithSso();
-                        return;
-                      }
-                      navigate({ to: '/signin' });
-                      return;
-                    }
+                    user_id: LOCAL_USER_ID,
                   }}
                   placeholder="Start building with Adam..."
                   type={type}
@@ -330,52 +269,22 @@ export function PromptView() {
                 />
               </SelectedItemsContext.Provider>
               <div className="relative">
-                {isLoading && (
+                {isBillingLoading && (
                   <div className="absolute left-0 right-0 top-0">
                     <div className="h-5 w-5 animate-spin rounded-full border-2 border-adam-blue border-t-transparent" />
                   </div>
                 )}
-                {!isLoading && user && limitReached && (
+                {!isBillingLoading && limitReached && (
                   <div className="absolute left-0 right-0 top-0">
                     <LimitReachedMessage />
                   </div>
                 )}
-                {!isLoading && user && lowPrompts && !limitReached && (
+                {!isBillingLoading && lowPrompts && !limitReached && (
                   <div className="absolute left-0 right-0 top-0">
                     <LowPromptsWarningMessage tokensRemaining={totalTokens} />
                   </div>
                 )}
               </div>
-              {!user && (
-                <p className="text-center text-sm text-gray-500">
-                  <Link
-                    to="/signin"
-                    onClick={(e) => {
-                      if (ssoProvider) {
-                        e.preventDefault();
-                        signInWithSso();
-                      }
-                    }}
-                    className="!text-adam-blue hover:!text-adam-blue/80"
-                  >
-                    Sign in
-                  </Link>{' '}
-                  or{' '}
-                  <Link
-                    to="/signup"
-                    onClick={(e) => {
-                      if (ssoProvider) {
-                        e.preventDefault();
-                        signInWithSso();
-                      }
-                    }}
-                    className="!text-adam-blue hover:!text-adam-blue/80"
-                  >
-                    create an account
-                  </Link>{' '}
-                  to start generating
-                </p>
-              )}
             </div>
           </div>
 

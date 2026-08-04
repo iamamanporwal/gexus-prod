@@ -1,13 +1,14 @@
-import { getLevel, useAuth } from '@/contexts/AuthContext';
+import { getLevel } from '@/lib/billing';
+import { useBilling } from '@/hooks/useBilling';
 import { Link } from '@tanstack/react-router';
-import { TrialDialog } from './auth/TrialDialog';
+import { TrialDialog } from './billing/TrialDialog';
 import { BILLING_UPGRADE_URL } from '@/config/billing';
 import { useState, useEffect } from 'react';
 
 const TRIAL_DIALOG_SHOWN_KEY = 'adam_trial_dialog_shown';
 
 export function LimitReachedMessage() {
-  const { billing } = useAuth();
+  const { billing } = useBilling();
   const level = getLevel(billing);
   const hasTrialed = billing?.user.hasTrialed ?? false;
   const [showTrialDialog, setShowTrialDialog] = useState(false);
@@ -47,7 +48,7 @@ export function LimitReachedMessage() {
 }
 
 function LimitReachedSpan({ onTrialClick }: { onTrialClick?: () => void }) {
-  const { billing } = useAuth();
+  const { billing } = useBilling();
   const level = getLevel(billing);
   const hasTrialed = billing?.user.hasTrialed ?? false;
 

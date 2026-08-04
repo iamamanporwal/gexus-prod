@@ -3,7 +3,8 @@ import { Zap } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { useIsMobile } from '@/hooks/useIsMobile';
-import { getLevel, useAuth } from '@/contexts/AuthContext';
+import { getLevel } from '@/lib/billing';
+import { useBilling } from '@/hooks/useBilling';
 import { BILLING_URL, BILLING_UPGRADE_URL } from '@/config/billing';
 import { cn } from '@/lib/utils';
 
@@ -32,7 +33,7 @@ function formatPeriodEnd(iso: string | null | undefined): string | null {
 
 export function CreditsButton() {
   const isMobile = useIsMobile();
-  const { user, billing } = useAuth();
+  const { billing } = useBilling();
   const level = getLevel(billing);
   const totalTokens = billing?.tokens.total ?? 0;
   const freeTokens = billing?.tokens.free ?? 0;
@@ -88,8 +89,6 @@ export function CreditsButton() {
       closeTimer.current = null;
     }
   }, [isMobile]);
-
-  if (!user) return null;
 
   if (isMobile) {
     return (

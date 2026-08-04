@@ -18,15 +18,7 @@ ALTER TABLE "public"."meshes" ADD CONSTRAINT "meshes_conversation_id_fkey" FOREI
 
 ALTER TABLE "public"."meshes" VALIDATE CONSTRAINT "meshes_conversation_id_fkey";
 
-ALTER TABLE "public"."meshes" ADD CONSTRAINT "meshes_user_id_fkey" FOREIGN KEY (user_id) REFERENCES auth.users(id) ON UPDATE CASCADE ON DELETE CASCADE not valid;
+-- No FK into auth.users: see supabase/migrations/20260801000000_remove_auth.sql.
 
-ALTER TABLE "public"."meshes" VALIDATE CONSTRAINT "meshes_user_id_fkey";
-
-
-CREATE POLICY "Everyone can view meshes associated with public conversations" ON "public"."meshes" FOR SELECT TO "authenticated", "anon" USING ((EXISTS ( SELECT 1
-   FROM "public"."conversations"
-  WHERE (("conversations"."id" = "meshes"."conversation_id") AND ("conversations"."privacy" = 'public'::"public"."privacy_type")))));
-
-CREATE POLICY "Users can manage their meshes" ON "public"."meshes" USING ( (SELECT "auth"."uid"()) = "user_id" );
-
-ALTER TABLE "public"."meshes" ENABLE ROW LEVEL SECURITY;
+-- RLS intentionally disabled: the policies were keyed on auth.uid().
+ALTER TABLE "public"."meshes" DISABLE ROW LEVEL SECURITY;

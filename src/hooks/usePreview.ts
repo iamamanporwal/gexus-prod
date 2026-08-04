@@ -1,4 +1,4 @@
-import { useAuth } from '@/contexts/AuthContext';
+import { LOCAL_USER_ID } from '@shared/localUser';
 import { supabase } from '@/lib/supabase';
 import { useQuery, type UseQueryResult } from '@tanstack/react-query';
 
@@ -22,8 +22,7 @@ export function usePreview({
   enabled = true,
   userId: userIdProp,
 }: UsePreviewOptions): UseQueryResult<string> {
-  const { user } = useAuth();
-  const userId = userIdProp ?? user?.id;
+  const userId = userIdProp ?? LOCAL_USER_ID;
 
   return useQuery({
     queryKey: ['preview', conversationId, id],

@@ -3,7 +3,6 @@ import { Bell } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useProfile, useUpdateProfile } from '@/services/profileService';
 import { useToast } from '@/hooks/use-toast';
-import { useAuth } from '@/contexts/AuthContext';
 
 interface NotificationPromptProps {
   shouldShow?: boolean;
@@ -14,7 +13,6 @@ export function NotificationPrompt({
   shouldShow = true,
   onDismiss,
 }: NotificationPromptProps) {
-  const { user } = useAuth();
   const { data: profile } = useProfile();
   const { mutate: updateProfile } = useUpdateProfile();
   const { toast } = useToast();
@@ -79,13 +77,7 @@ export function NotificationPrompt({
   };
 
   // Don't show if conditions aren't met
-  if (
-    !shouldShow ||
-    isDismissed ||
-    !user ||
-    !profile ||
-    profile.notifications_enabled
-  ) {
+  if (!shouldShow || isDismissed || !profile || profile.notifications_enabled) {
     return null;
   }
 

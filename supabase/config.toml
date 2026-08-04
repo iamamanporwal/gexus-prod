@@ -4,13 +4,10 @@
 # working directory name when running `supabase init`.
 project_id = "cadam"
 
-[auth.email]
-enable_signup = true
-
-[auth.external.google]
-enabled = true
-client_id = "env(GOOGLE_CLIENT_ID)"
-secret = "env(GOOGLE_SECRET)"
+# Authentication has been removed from this fork (see
+# supabase/migrations/20260801000000_remove_auth.sql). The [auth.email] and
+# [auth.external.google] blocks are gone with it — the Google OAuth block also
+# warned on every CLI invocation about unset GOOGLE_CLIENT_ID / GOOGLE_SECRET.
 
 [storage.buckets.meshes]
 public = false

@@ -1,4 +1,4 @@
-import { AuthProvider } from '@/contexts/AuthProvider';
+import { MeshRealtimeProvider } from '@/contexts/MeshRealtimeProvider';
 import { TooltipProvider } from './components/ui/tooltip';
 import { Toaster } from './components/ui/toaster';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -28,7 +28,7 @@ function App({ error }: { error?: unknown }) {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <AuthProvider>
+      <MeshRealtimeProvider>
         <PostHogProvider>
           <MeshFilesProvider>
             <TooltipProvider delayDuration={0}>
@@ -37,7 +37,7 @@ function App({ error }: { error?: unknown }) {
             </TooltipProvider>
           </MeshFilesProvider>
         </PostHogProvider>
-      </AuthProvider>
+      </MeshRealtimeProvider>
     </QueryClientProvider>
   );
 }

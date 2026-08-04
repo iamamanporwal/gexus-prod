@@ -1,48 +1,13 @@
--- Images and Meshes
-CREATE POLICY "Give users access to own folder images_select" ON storage.objects FOR SELECT TO public USING (bucket_id = 'images' AND (select auth.uid()::text) = (storage.foldername(name))[1]);
-
-CREATE POLICY "Give users access to own folder images_insert" ON storage.objects FOR INSERT TO public WITH CHECK (bucket_id = 'images' AND (select auth.uid()::text) = (storage.foldername(name))[1]);
-
-CREATE POLICY "Give users access to own folder images_update" ON storage.objects FOR UPDATE TO public USING (bucket_id = 'images' AND (select auth.uid()::text) = (storage.foldername(name))[1]);
-
-CREATE POLICY "Give users access to own folder images_delete" ON storage.objects FOR DELETE TO public USING (bucket_id = 'images' AND (select auth.uid()::text) = (storage.foldername(name))[1]);
-
-CREATE POLICY "Give users access to own folder meshes_select" ON storage.objects FOR SELECT TO public USING (bucket_id = 'meshes' AND (select auth.uid()::text) = (storage.foldername(name))[1]);
-
-CREATE POLICY "Give users access to own folder meshes_insert" ON storage.objects FOR INSERT TO public WITH CHECK (bucket_id = 'meshes' AND (select auth.uid()::text) = (storage.foldername(name))[1]);
-
-CREATE POLICY "Give users access to own folder meshes_update" ON storage.objects FOR UPDATE TO public USING (bucket_id = 'meshes' AND (select auth.uid()::text) = (storage.foldername(name))[1]);
-
-CREATE POLICY "Give users access to own folder meshes_delete" ON storage.objects FOR DELETE TO public USING (bucket_id = 'meshes' AND (select auth.uid()::text) = (storage.foldername(name))[1]);
-
--- Shared Conversations
-CREATE POLICY "Public conversations allow anyone to view images_select" ON storage.objects FOR SELECT TO anon, authenticated USING (((bucket_id = 'images'::text) AND (EXISTS ( SELECT 1 FROM conversations WHERE ((conversations.privacy = 'public') AND ((conversations.id)::text = (storage.foldername(objects.name))[2]))))));
-
-CREATE POLICY "Public conversations allow anyone to view meshes_select" ON storage.objects FOR SELECT TO anon, authenticated USING (((bucket_id = 'meshes'::text) AND (EXISTS ( SELECT 1 FROM conversations WHERE ((conversations.privacy = 'public') AND ((conversations.id)::text = (storage.foldername(objects.name))[2]))))));
-
--- Previews
-CREATE POLICY "Give users access to own folder previews_select" ON storage.objects FOR SELECT TO public USING (bucket_id = 'previews' AND (select auth.uid()::text) = (storage.foldername(name))[1]);
-
-CREATE POLICY "Give users access to own folder previews_insert" ON storage.objects FOR INSERT TO public WITH CHECK (bucket_id = 'previews' AND (select auth.uid()::text) = (storage.foldername(name))[1]);
-
-CREATE POLICY "Give users access to own folder previews_update" ON storage.objects FOR UPDATE TO public USING (bucket_id = 'previews' AND (select auth.uid()::text) = (storage.foldername(name))[1]);
-
-CREATE POLICY "Give users access to own folder previews_delete" ON storage.objects FOR DELETE TO public USING (bucket_id = 'previews' AND (select auth.uid()::text) = (storage.foldername(name))[1]);
-
--- Only allow service role to upload temp multiview images (from our functions)
-CREATE POLICY "Allow service role to upload temp multiview images"
-ON storage.objects FOR INSERT
-TO service_role
-WITH CHECK (bucket_id = 'temp-multiview');
-
--- Allow public read access (for Tripo to download)
-CREATE POLICY "Allow public read access to temp multiview images"
-ON storage.objects FOR SELECT
-TO public
-USING (bucket_id = 'temp-multiview');
-
--- Allow service role to delete expired files (for manual cleanup if needed)
-CREATE POLICY "Allow service role to delete temp multiview images"
-ON storage.objects FOR DELETE
-TO service_role
-USING (bucket_id = 'temp-multiview');
+-- Storage policies without authentication.
+--
+-- Upstream scoped every bucket to the signed-in user by matching the first
+-- path segment against auth.uid(). This build has no authentication, so
+-- auth.uid() is always NULL and those policies would deny every object.
+--
+-- Uploads still write under the local user's id (see shared/localUser.ts) so
+-- the existing `<user_id>/<conversation_id>/...` layout is unchanged — nothing
+-- verifies the prefix any more, it is just a folder name.
+CREATE POLICY "Local access to app buckets" ON storage.objects
+  FOR ALL TO public
+  USING (bucket_id IN ('images', 'meshes', 'previews', 'temp-multiview'))
+  WITH CHECK (bucket_id IN ('images', 'meshes', 'previews', 'temp-multiview'));

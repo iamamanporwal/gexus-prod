@@ -1,4 +1,4 @@
-import { useAuth } from '@/contexts/AuthContext';
+import { LOCAL_USER_ID } from '@shared/localUser';
 import { Conversation } from '@shared/types';
 import { supabase } from '@/lib/supabase';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -18,9 +18,8 @@ const defaultConversation: Conversation = {
 
 export function useConversation() {
   const { id: conversationId } = useParams({
-    from: '/_layout/_auth/editor/$id',
+    from: '/_layout/editor/$id',
   });
-  const { user } = useAuth();
   const queryClient = useQueryClient();
 
   const { data: conversation, isLoading: isConversationLoading } =
@@ -32,15 +31,12 @@ export function useConversation() {
         if (!conversationId) {
           throw new Error('Conversation ID is required');
         }
-        if (!user?.id) {
-          throw new Error('User must be authenticated');
-        }
 
         const { data, error } = await supabase
           .from('conversations')
           .select('*')
           .eq('id', conversationId)
-          .eq('user_id', user.id)
+          .eq('user_id', LOCAL_USER_ID)
           .limit(1)
           .single()
           .overrideTypes<Conversation>();

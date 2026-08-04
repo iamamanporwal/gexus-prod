@@ -1,27 +1,21 @@
-import { User } from '@supabase/supabase-js';
-import { useAuth } from '@/contexts/AuthContext';
-import { supabase, ssoClaims } from '@/lib/supabase';
+import { LOCAL_USER_ID } from '@shared/localUser';
+import { supabase } from '@/lib/supabase';
 import { Profile } from '@shared/types';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
-// Under SSO the display name is owned by the identity provider (Adam): the live
-// `name` claim from ssoClaims (GoTrue refreshes it every sign-in). NOT the
-// `full_name` claim — Adam's identity_data carries a stale full_name while
-// `name` is current. undefined off-SSO → the local profiles mirror wins.
-function ssoDisplayName(user: User | null): string | undefined {
-  return ssoClaims(user)?.name || undefined;
-}
-
+// The profiles row for the local identity. Seeded by
+// supabase/migrations/20260801000000_remove_auth.sql, so it always exists.
+//
+// The SSO display-name override is gone with authentication: the local
+// profiles row is now the only source for the name.
 export function useProfile() {
-  const { user } = useAuth();
-
   return useQuery({
-    queryKey: ['profile', user?.id],
+    queryKey: ['profile', LOCAL_USER_ID],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('profiles')
         .select('*')
-        .eq('user_id', user?.id || '')
+        .eq('user_id', LOCAL_USER_ID)
         .single();
 
       if (error) throw error;
@@ -31,13 +25,6 @@ export function useProfile() {
       }
 
       return data;
-    },
-    enabled: !!user?.id,
-    // Every name read flows through here, so resolve it in one place: under SSO
-    // the provider's name wins over the local mirror (which is display-only).
-    select: (profile) => {
-      const name = ssoDisplayName(user);
-      return name ? { ...profile, full_name: name } : profile;
     },
   });
 }
@@ -66,7 +53,6 @@ export function useAvatarUrl(avatarPath: string | null | undefined) {
 }
 
 export function useUpdateProfile() {
-  const { user } = useAuth();
   const queryClient = useQueryClient();
 
   return useMutation({
@@ -81,7 +67,7 @@ export function useUpdateProfile() {
           }),
           updated_at: new Date().toISOString(),
         })
-        .eq('user_id', user?.id || '')
+        .eq('user_id', LOCAL_USER_ID)
         .select()
         .single();
 
@@ -91,20 +77,17 @@ export function useUpdateProfile() {
     },
     onSuccess: (data) => {
       if (data) {
-        queryClient.setQueryData(['profile', user?.id], data);
+        queryClient.setQueryData(['profile', LOCAL_USER_ID], data);
       }
     },
   });
 }
 
 export function useUploadAvatar() {
-  const { user } = useAuth();
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async (file: File) => {
-      if (!user) throw new Error('User not authenticated');
-
       // Validate file type
       const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
       if (!validTypes.includes(file.type)) {
@@ -121,7 +104,7 @@ export function useUploadAvatar() {
       }
 
       // Upload image with upsert to automatically replace existing
-      const filePath = `${user.id}/profile`;
+      const filePath = `${LOCAL_USER_ID}/profile`;
 
       const { error: uploadError } = await supabase.storage
         .from('images')
@@ -139,7 +122,7 @@ export function useUploadAvatar() {
           avatar_path: filePath,
           updated_at: new Date().toISOString(),
         })
-        .eq('user_id', user.id)
+        .eq('user_id', LOCAL_USER_ID)
         .select()
         .single();
 
@@ -150,7 +133,7 @@ export function useUploadAvatar() {
     onSuccess: (data) => {
       if (data) {
         // Update profile cache
-        queryClient.setQueryData(['profile', user?.id], data);
+        queryClient.setQueryData(['profile', LOCAL_USER_ID], data);
         // Invalidate avatar URL cache to fetch new image
         queryClient.invalidateQueries({
           queryKey: ['avatar-url', data.avatar_path],

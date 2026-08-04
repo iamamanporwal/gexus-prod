@@ -12,10 +12,8 @@ CREATE UNIQUE INDEX IF NOT EXISTS profiles_pkey ON "public"."profiles" USING btr
 
 ALTER TABLE "public"."profiles" ADD CONSTRAINT "profiles_pkey" PRIMARY KEY USING INDEX "profiles_pkey";
 
-ALTER TABLE "public"."profiles" ADD CONSTRAINT "profiles_user_id_fkey" FOREIGN KEY (user_id) REFERENCES auth.users(id) ON UPDATE CASCADE ON DELETE CASCADE not valid;
+-- No FK into auth.users: the single local profile row is inserted by
+-- supabase/migrations/20260801000000_remove_auth.sql.
 
-ALTER TABLE "public"."profiles" VALIDATE CONSTRAINT "profiles_user_id_fkey";
-
-CREATE POLICY "Users can manage their own profile" ON "public"."profiles" USING ( (SELECT "auth"."uid"()) = "user_id" );
-
-ALTER TABLE "public"."profiles" ENABLE ROW LEVEL SECURITY;
+-- RLS intentionally disabled: the policy was keyed on auth.uid().
+ALTER TABLE "public"."profiles" DISABLE ROW LEVEL SECURITY;

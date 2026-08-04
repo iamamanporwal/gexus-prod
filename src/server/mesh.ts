@@ -19,6 +19,7 @@ import { billing, BillingClientError } from './billingClient';
 import { logApiError, logError } from './serverLog';
 import { Buffer } from 'node:buffer';
 import { env, requiredEnv, webhookBaseUrl } from './env';
+import { LOCAL_USER } from '@shared/localUser';
 
 const MESH_TOKEN_COST = 30;
 
@@ -376,63 +377,10 @@ export async function handleMeshRequest(req: Request) {
       });
     }
 
-    // Authenticate user using bearer token
-    debugLog('=== AUTHENTICATING USER ===');
-    const authHeader = req.headers.get('Authorization');
-    const token = authHeader?.replace('Bearer ', '');
-    debugLog('Auth header present:', !!authHeader);
-    if (!token) {
-      return new Response(
-        JSON.stringify({ error: { message: 'Unauthorized' } }),
-        {
-          status: 401,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        },
-      );
-    }
-
+    // No bearer token to verify: authentication has been removed, so every
+    // request is the one local identity.
     const supabaseClient = getSupabaseClient();
-    const { data: userData, error: userError } =
-      await supabaseClient.auth.getUser(token);
-
-    if (!userData.user) {
-      logError(new Error('No user found in token'), {
-        functionName: 'mesh',
-        statusCode: 401,
-      });
-      return new Response(
-        JSON.stringify({ error: { message: 'Unauthorized' } }),
-        {
-          status: 401,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        },
-      );
-    }
-
-    if (userError) {
-      logError(userError, {
-        functionName: 'mesh',
-        statusCode: 401,
-      });
-      return new Response(
-        JSON.stringify({ error: { message: userError.message } }),
-        {
-          status: 401,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        },
-      );
-    }
-
-    // Deduct tokens for mesh operation via adam-billing
-    if (!userData.user.email) {
-      return new Response(
-        JSON.stringify({ error: { message: 'User email missing' } }),
-        {
-          status: 400,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        },
-      );
-    }
+    const userData = { user: LOCAL_USER };
 
     ensureFalConfig();
     const appBaseUrl = webhookBaseUrl(req.url);

@@ -48,7 +48,7 @@ import { Slider } from '@/components/ui/slider';
 import { Input } from '@/components/ui/input';
 import { useMutation } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
-import { useAuth } from '@/contexts/AuthContext';
+import { LOCAL_USER_ID } from '@shared/localUser';
 import { ModelSelector } from '@/components/ModelSelector';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -487,7 +487,6 @@ function TextAreaChat({
     useState('');
   const prevIsDraggingRef = useRef(isDragging);
   const { toast } = useToast();
-  const { session } = useAuth();
   const { images, mesh, setImages, setMesh } = useItemSelection();
   const meshFiles = useMeshFiles();
   const creativeModel =
@@ -855,8 +854,9 @@ function TextAreaChat({
       // If preview doesn't exist, generate it with the correct file type
       const preview = await generatePreview(file, fileExtension);
 
-      // Only upload if the current user is the conversation owner
-      if (session?.user.id === conversation.user_id) {
+      // Only upload if the local user owns this conversation (shared/public
+      // conversations opened read-only still belong to someone else).
+      if (LOCAL_USER_ID === conversation.user_id) {
         // Convert data URL to Blob
         const response = await fetch(preview);
         const blob = await response.blob();
@@ -1138,13 +1138,11 @@ function TextAreaChat({
           supabase.storage
             .from('meshes')
             .remove([
-              `${session?.user?.id}/${conversation.id}/${mesh.id}.${fileExtension}`,
+              `${LOCAL_USER_ID}/${conversation.id}/${mesh.id}.${fileExtension}`,
             ]),
           supabase.storage
             .from('images')
-            .remove([
-              `${session?.user?.id}/${conversation.id}/preview-${mesh.id}`,
-            ]),
+            .remove([`${LOCAL_USER_ID}/${conversation.id}/preview-${mesh.id}`]),
         ]);
       } catch (error) {
         console.error('Error removing mesh:', error);
@@ -1160,7 +1158,7 @@ function TextAreaChat({
         try {
           await supabase.storage
             .from('images')
-            .remove([`${session?.user?.id}/${conversation.id}/${image.id}`]);
+            .remove([`${LOCAL_USER_ID}/${conversation.id}/${image.id}`]);
         } catch (error) {
           console.error('Error removing image:', error);
         }

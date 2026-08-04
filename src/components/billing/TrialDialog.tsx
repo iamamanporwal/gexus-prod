@@ -6,8 +6,6 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
-import { useNavigate } from '@tanstack/react-router';
-import { useAuth } from '@/contexts/AuthContext';
 import { Check } from 'lucide-react';
 import FreeTrialButton from '@/components/ui/FreeTrialButton';
 import { useSubscriptionService } from '@/services/subscriptionService';
@@ -22,9 +20,6 @@ export function TrialDialog({
   onOpenChange?: (open: boolean) => void;
   children?: React.ReactNode;
 }) {
-  const { user } = useAuth();
-  const navigate = useNavigate();
-
   const { data: products = [] } = useSubscriptionProducts();
   const { mutate: createCheckoutSession, isPending } = useSubscriptionService();
 
@@ -40,11 +35,8 @@ export function TrialDialog({
   // hardcoding it, so the dialog can't drift from the actual plan.
   const proCredits = proMonthly?.tokenAmount;
 
+  // The signed-out branch that bounced to /signin is gone with authentication.
   const handleSubscribe = () => {
-    if (!user) {
-      navigate({ to: '/signin' });
-      return;
-    }
     if (!proMonthly) return;
     createCheckoutSession({
       priceId: proMonthly.stripePriceId,

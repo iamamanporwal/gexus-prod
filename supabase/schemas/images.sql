@@ -17,18 +17,10 @@ ALTER TABLE "public"."images" ADD CONSTRAINT "images_conversation_id_fkey" FOREI
 
 ALTER TABLE "public"."images" VALIDATE CONSTRAINT "images_conversation_id_fkey";
 
-ALTER TABLE "public"."images" ADD CONSTRAINT "images_user_id_fkey" FOREIGN KEY (user_id) REFERENCES auth.users(id) ON UPDATE CASCADE ON DELETE CASCADE not valid;
-
-ALTER TABLE "public"."images" VALIDATE CONSTRAINT "images_user_id_fkey";
-
+-- No FK into auth.users: see supabase/migrations/20260801000000_remove_auth.sql.
 
 CREATE INDEX IF NOT EXISTS idx_images_image_generation_call_id ON "public"."images" USING "btree" ("image_generation_call_id");
 
 
-CREATE POLICY "Public conversations images" ON "public"."images" FOR SELECT TO "authenticated", "anon" USING ((EXISTS ( SELECT 1
-   FROM "public"."conversations"
-  WHERE (("conversations"."id" = "images"."conversation_id") AND ("conversations"."privacy" = 'public'::"public"."privacy_type")))));
-
-CREATE POLICY "User can manage their data" ON "public"."images" TO "authenticated" USING ((( SELECT "auth"."uid"()) = "user_id")) WITH CHECK ((( SELECT "auth"."uid"()) = "user_id"));
-
-ALTER TABLE "public"."images" ENABLE ROW LEVEL SECURITY;
+-- RLS intentionally disabled: the policies were keyed on auth.uid().
+ALTER TABLE "public"."images" DISABLE ROW LEVEL SECURITY;

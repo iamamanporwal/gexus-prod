@@ -13,7 +13,8 @@ import { ShareContent } from '@/components/ui/ShareContent';
 import { OpenSCADPreview } from '@/components/viewer/OpenSCADViewer';
 import { MeshPreview } from '@/components/viewer/MeshPreview';
 import Loader from '@/components/viewer/Loader';
-import { useAuth } from '@/contexts/AuthContext';
+import { LOCAL_USER_ID } from '@shared/localUser';
+import { useBilling } from '@/hooks/useBilling';
 import { ConversationContext } from '@/contexts/ConversationContext';
 import { SelectedItemsContext } from '@/contexts/SelectedItemsContext';
 import { useConversation } from '@/contexts/ConversationContext';
@@ -62,9 +63,8 @@ import { ConversationView } from './ConversationView';
  */
 export default function EditorView() {
   const { id: conversationId } = useParams({
-    from: '/_layout/_auth/editor/$id',
+    from: '/_layout/editor/$id',
   });
-  const { user } = useAuth();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const [images, setImages] = useState<MessageItem[]>([]);
@@ -79,7 +79,7 @@ export default function EditorView() {
         .from('conversations')
         .select('*')
         .eq('id', conversationId)
-        .eq('user_id', user?.id ?? '')
+        .eq('user_id', LOCAL_USER_ID)
         .limit(1)
         .single();
       if (error) throw error;
@@ -183,7 +183,7 @@ type ActivePreview =
 function ConversationEditor() {
   const { conversation, updateConversation, updateConversationAsync } =
     useConversation();
-  const { user, billing } = useAuth();
+  const { billing } = useBilling();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const totalTokens = billing?.tokens.total ?? 0;
@@ -266,11 +266,10 @@ function ConversationEditor() {
   // to keep `chat.messages` aligned. ──────────────────────────────────
   const handleSendParts = useCallback(
     async (parts: AppUIMessage['parts']) => {
-      if (!user?.id) throw new Error('User must be authenticated');
       await ensureInputRecords({
         parts,
         conversationId: conversation.id,
-        userId: user.id,
+        userId: LOCAL_USER_ID,
       });
       const parentMessageId = conversation.current_message_leaf_id ?? null;
       const userMessageId = await persistUserMessage({
@@ -289,7 +288,7 @@ function ConversationEditor() {
       );
       return { userMessageId };
     },
-    [conversation, model, queryClient, user?.id],
+    [conversation, model, queryClient],
   );
 
   const handleRetry = useCallback(
@@ -306,11 +305,10 @@ function ConversationEditor() {
 
   const handleEdit = useCallback(
     async (original: ChatMessage, parts: AppUIMessage['parts']) => {
-      if (!user?.id) throw new Error('User must be authenticated');
       await ensureInputRecords({
         parts,
         conversationId: conversation.id,
-        userId: user.id,
+        userId: LOCAL_USER_ID,
       });
       const parentId = original.parent_message_id;
       const newUserMessageId = await persistUserMessage({
@@ -327,7 +325,7 @@ function ConversationEditor() {
       const parentPath = parentId ? branchForLeaf(parentId) : [];
       return { newUserMessageId, parentPath };
     },
-    [branchForLeaf, conversation, model, queryClient, user?.id],
+    [branchForLeaf, conversation, model, queryClient],
   );
 
   const handleRestore = useCallback(

@@ -1,4 +1,3 @@
-import { supabase } from '@/lib/supabase';
 import { z } from 'zod';
 
 export function apiUrl(path: string) {
@@ -20,13 +19,13 @@ export async function apiJson<T>(
   init: RequestInit = {},
   schema?: z.ZodType<T>,
 ): Promise<T | unknown> {
-  const token = (await supabase.auth.getSession()).data.session?.access_token;
+  // No Authorization header: there are no sessions. The server resolves the
+  // local identity itself (see src/server/api.ts requireUser).
   const url = apiUrl(path);
   const response = await fetch(url, {
     ...init,
     headers: {
       'Content-Type': 'application/json',
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...init.headers,
     },
   });
