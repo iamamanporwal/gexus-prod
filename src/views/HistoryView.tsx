@@ -7,8 +7,8 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Input } from '@/components/ui/input';
-import { supabase } from '@/lib/supabase';
-import { LOCAL_USER_ID } from '@shared/localUser';
+import { supabase, guestUserId } from '@/lib/db';
+import { countRows } from '@/lib/firebaseClient';
 import { format } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -58,38 +58,55 @@ export function HistoryView() {
   const conversationQuery = useQuery<HistoryConversation[]>({
     queryKey: ['conversations'],
     queryFn: async () => {
+      // This was a single PostgREST query with two embedded resources:
+      //   .select('*, first_message:messages(parts), messagesCount:messages(count)')
+      //   .limit(1, { referencedTable: 'first_message' })
+      //
+      // Firestore has neither joins nor aggregates-inside-a-query, so it splits
+      // into one conversations read plus two per-conversation lookups. The
+      // lookups run concurrently per conversation and the list is already
+      // capped, so the wall-clock cost is one extra round trip rather than N.
+      //
+      // The count uses getCountFromServer (see countRows) rather than reading
+      // the messages: on a long conversation, counting by fetching would bill a
+      // document read per message.
       const { data: conversationsData, error: conversationsError } =
         await supabase
           .from('conversations')
-          .select(
-            `*, first_message:messages(parts), messagesCount:messages(count)`,
-          )
-          .eq('user_id', LOCAL_USER_ID)
+          .select('*')
+          .eq('user_id', guestUserId())
           .order('updated_at', { ascending: false })
-          .order('created_at', { ascending: false })
-          .limit(1, { referencedTable: 'first_message' })
           .overrideTypes<Array<{ settings: ConversationSettings }>>();
 
       if (conversationsError) throw conversationsError;
 
-      const formattedConversations = conversationsData.map((conv) => {
-        const parts = conv.first_message?.[0]?.parts;
-        const messageCount = conv.messagesCount?.[0]?.count ?? 0;
+      const formattedConversations = await Promise.all(
+        (conversationsData ?? []).map(async (conv) => {
+          const [firstMessageResult, messageCount] = await Promise.all([
+            supabase
+              .from('messages')
+              .select('parts')
+              .eq('conversation_id', conv.id)
+              .order('created_at', { ascending: true })
+              .limit(1),
+            countRows('messages', 'conversation_id', conv.id),
+          ]);
 
-        const formattedFirstMessage = {
-          text: textFromParts(parts),
-          images: imageIdsFromParts(parts),
-        };
+          const parts = firstMessageResult.data?.[0]?.parts;
 
-        return {
-          ...conv,
-          created_at: conv.created_at || new Date().toISOString(),
-          updated_at:
-            conv.updated_at || conv.created_at || new Date().toISOString(),
-          message_count: messageCount,
-          first_message: formattedFirstMessage,
-        };
-      });
+          return {
+            ...conv,
+            created_at: conv.created_at || new Date().toISOString(),
+            updated_at:
+              conv.updated_at || conv.created_at || new Date().toISOString(),
+            message_count: messageCount,
+            first_message: {
+              text: textFromParts(parts),
+              images: imageIdsFromParts(parts),
+            },
+          };
+        }),
+      );
 
       return formattedConversations;
     },
@@ -116,11 +133,11 @@ export function HistoryView() {
 
       supabase.storage
         .from('images')
-        .list(`${LOCAL_USER_ID}/${conversationId}`)
+        .list(`${guestUserId()}/${conversationId}`)
         .then(({ data: list }) => {
           if (list) {
             const filesToRemove = list.map(
-              (file) => `${LOCAL_USER_ID}/${conversationId}/${file.name}`,
+              (file) => `${guestUserId()}/${conversationId}/${file.name}`,
             );
             supabase.storage.from('images').remove(filesToRemove);
           }

@@ -1,4 +1,10 @@
-import { corsHeaders, isRecord } from './api';
+import {
+  corsHeaders,
+  isRecord,
+  isUnauthorizedError,
+  requireUser,
+  type AuthedUser,
+} from './api';
 import { fal } from '@fal-ai/client';
 import { GoogleGenAI } from '@google/genai';
 import OpenAI from 'openai';
@@ -19,7 +25,6 @@ import { billing, BillingClientError } from './billingClient';
 import { logApiError, logError } from './serverLog';
 import { Buffer } from 'node:buffer';
 import { env, requiredEnv, webhookBaseUrl } from './env';
-import { LOCAL_USER } from '@shared/localUser';
 
 const MESH_TOKEN_COST = 30;
 
@@ -377,16 +382,28 @@ export async function handleMeshRequest(req: Request) {
       });
     }
 
-    // No bearer token to verify: authentication has been removed, so every
-    // request is the one local identity.
+    // Identity from the verified Firebase ID token. The client below uses admin
+    // credentials and bypasses Security Rules, so every query here must be
+    // scoped by this uid explicitly.
     const supabaseClient = getSupabaseClient();
-    const userData = { user: LOCAL_USER };
+    let userData: { user: AuthedUser };
+    try {
+      userData = { user: await requireUser(req) };
+    } catch (error) {
+      if (isUnauthorizedError(error)) {
+        return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+          status: 401,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      throw error;
+    }
 
     ensureFalConfig();
     const appBaseUrl = webhookBaseUrl(req.url);
     const meshReferenceId = crypto.randomUUID();
     try {
-      const result = await billing.consume(userData.user.email, {
+      const result = await billing.consume(userData.user.id, {
         tokens: MESH_TOKEN_COST,
         operation: 'mesh',
         referenceId: meshReferenceId,
@@ -780,8 +797,10 @@ async function submitMeshJob(
               60 * 60,
             );
 
-        if (imageSignedUrlError) {
-          throw new Error(imageSignedUrlError.message);
+        if (imageSignedUrlError || !imageSignedUrl) {
+          throw new Error(
+            imageSignedUrlError?.message ?? 'Failed to sign image URL',
+          );
         }
 
         imageInputs = [reformatSignedUrl(imageSignedUrl.signedUrl)];
@@ -855,8 +874,10 @@ async function submitMeshJob(
               60 * 60,
             );
 
-        if (imageSignedUrlError) {
-          throw new Error(imageSignedUrlError.message);
+        if (imageSignedUrlError || !imageSignedUrl) {
+          throw new Error(
+            imageSignedUrlError?.message ?? 'Failed to sign image URL',
+          );
         }
 
         imageInputs = [reformatSignedUrl(imageSignedUrl.signedUrl)];
@@ -875,8 +896,10 @@ async function submitMeshJob(
           .from('images')
           .createSignedUrls(imageFiles, 60 * 60);
 
-      if (imageSignedUrlsError) {
-        throw new Error(imageSignedUrlsError.message);
+      if (imageSignedUrlsError || !imageSignedUrls) {
+        throw new Error(
+          imageSignedUrlsError?.message ?? 'Failed to sign image URLs',
+        );
       }
 
       // Filter out any errors and map to just get signedURL, swap out basename for supabase host
@@ -1018,8 +1041,10 @@ async function submitMeshJob(
             60 * 60,
           );
 
-      if (imageSignedUrlError) {
-        throw new Error(imageSignedUrlError.message);
+      if (imageSignedUrlError || !imageSignedUrl) {
+        throw new Error(
+          imageSignedUrlError?.message ?? 'Failed to sign image URL',
+        );
       }
 
       const baseImageUrl = reformatSignedUrl(imageSignedUrl.signedUrl);
@@ -1340,22 +1365,13 @@ Output:`;
       requestData: { meshId, model, meshTopology, polygonCount },
     });
 
+    // Writing the row is the notification: the client watches the mesh
+    // document (lib/firebaseMeshWatch.ts) rather than a broadcast channel, so
+    // this failure status reaches the UI on its own.
     await supabaseClient
       .from('meshes')
       .update({ status: 'failure' })
       .eq('id', meshId);
-
-    const channel = supabaseClient.channel(`mesh-updates-${userId}`);
-    await channel.send({
-      type: 'broadcast',
-      event: 'mesh-updated',
-      payload: {
-        kind: 'mesh',
-        id: meshId,
-        status: 'failure',
-        conversation_id: conversationId,
-      },
-    });
   }
 }
 
@@ -1478,8 +1494,10 @@ async function submitPreviewJob(
           .from('images')
           .createSignedUrl(`${userId}/${conversationId}/${imageId}`, 60 * 60);
 
-      if (imageSignedUrlError) {
-        throw new Error(imageSignedUrlError.message);
+      if (imageSignedUrlError || !imageSignedUrl) {
+        throw new Error(
+          imageSignedUrlError?.message ?? 'Failed to sign image URL',
+        );
       }
 
       imageInputs = [reformatSignedUrl(imageSignedUrl.signedUrl)];
@@ -1497,8 +1515,10 @@ async function submitPreviewJob(
           .from('images')
           .createSignedUrls(imageFiles, 60 * 60);
 
-      if (imageSignedUrlsError) {
-        throw new Error(imageSignedUrlsError.message);
+      if (imageSignedUrlsError || !imageSignedUrls) {
+        throw new Error(
+          imageSignedUrlsError?.message ?? 'Failed to sign image URLs',
+        );
       }
 
       // Filter out any errors and map to just get signedURL, swap out basename for supabase host

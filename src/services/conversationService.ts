@@ -1,6 +1,5 @@
-import { LOCAL_USER_ID } from '@shared/localUser';
 import { Conversation } from '@shared/types';
-import { supabase } from '@/lib/supabase';
+import { supabase, guestUserId } from '@/lib/db';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useParams } from '@tanstack/react-router';
 
@@ -36,7 +35,7 @@ export function useConversation() {
           .from('conversations')
           .select('*')
           .eq('id', conversationId)
-          .eq('user_id', LOCAL_USER_ID)
+          .eq('user_id', guestUserId())
           .limit(1)
           .single()
           .overrideTypes<Conversation>();

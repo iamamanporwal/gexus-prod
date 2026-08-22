@@ -13,8 +13,12 @@ import { ShareContent } from '@/components/ui/ShareContent';
 import { OpenSCADPreview } from '@/components/viewer/OpenSCADViewer';
 import { MeshPreview } from '@/components/viewer/MeshPreview';
 import Loader from '@/components/viewer/Loader';
-import { LOCAL_USER_ID } from '@shared/localUser';
 import { useBilling } from '@/hooks/useBilling';
+import {
+  DEFAULT_PARAMETRIC_MODEL,
+  resolveUsableModel,
+  useAvailableParametricModels,
+} from '@/hooks/useAvailableModels';
 import { ConversationContext } from '@/contexts/ConversationContext';
 import { SelectedItemsContext } from '@/contexts/SelectedItemsContext';
 import { useConversation } from '@/contexts/ConversationContext';
@@ -25,7 +29,7 @@ import {
 } from '@/lib/aiMessages';
 import parseParameters from '@shared/parseParameters';
 import { normalizeModelId } from '@shared/models';
-import { supabase } from '@/lib/supabase';
+import { supabase, guestUserId } from '@/lib/db';
 import { updateParameter } from '@/lib/utils';
 import {
   persistAssistantParts,
@@ -79,7 +83,7 @@ export default function EditorView() {
         .from('conversations')
         .select('*')
         .eq('id', conversationId)
-        .eq('user_id', LOCAL_USER_ID)
+        .eq('user_id', guestUserId())
         .limit(1)
         .single();
       if (error) throw error;
@@ -194,8 +198,21 @@ function ConversationEditor() {
       ? normalizeModelId(conversation.settings.model)
       : conversation.type === 'creative'
         ? 'quality'
-        : 'openai/gpt-5.6-sol',
+        : DEFAULT_PARAMETRIC_MODEL,
   );
+
+  // A conversation can have been saved against a model whose provider key is no
+  // longer configured. Fall back to a reachable one so the editor still opens
+  // and the picker's label is not blank; the stored setting is left untouched
+  // until the user actually sends a message.
+  const { models: availableParametricModels, isLoading: isModelsLoading } =
+    useAvailableParametricModels();
+
+  useEffect(() => {
+    if (isModelsLoading || conversation.type === 'creative') return;
+    const usable = resolveUsableModel(model, availableParametricModels);
+    if (usable !== model) setModel(usable);
+  }, [isModelsLoading, conversation.type, model, availableParametricModels]);
   const [activePreview, setActivePreview] = useState<ActivePreview>(null);
   const [parameters, setParameters] = useState<Parameter[]>([]);
   const [currentOutput, setCurrentOutput] = useState<Blob | undefined>();
@@ -269,7 +286,7 @@ function ConversationEditor() {
       await ensureInputRecords({
         parts,
         conversationId: conversation.id,
-        userId: LOCAL_USER_ID,
+        userId: guestUserId(),
       });
       const parentMessageId = conversation.current_message_leaf_id ?? null;
       const userMessageId = await persistUserMessage({
@@ -308,7 +325,7 @@ function ConversationEditor() {
       await ensureInputRecords({
         parts,
         conversationId: conversation.id,
-        userId: LOCAL_USER_ID,
+        userId: guestUserId(),
       });
       const parentId = original.parent_message_id;
       const newUserMessageId = await persistUserMessage({

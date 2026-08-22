@@ -71,8 +71,19 @@ export function ModelSelector({
 
   // Trigger slide animation when selected model changes
   useEffect(() => {
+    // A selection can also change because the previous model left the catalog —
+    // the availability query resolving and filtering out a provider whose key
+    // is not configured (see useAvailableParametricModels). That is a silent
+    // correction, not a user action, so it must not animate: otherwise every
+    // cold load slides the label from the default to the corrected model and
+    // reads as a glitch.
+    const previousStillOffered = models.some(
+      (m) => m.name === prevNameRef.current,
+    );
+
     if (
       prevNameRef.current &&
+      previousStillOffered &&
       prevNameRef.current !== selectedModelConfig?.name
     ) {
       setPrevModelName(prevNameRef.current);

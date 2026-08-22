@@ -20,9 +20,9 @@ import {
 import {
   cn,
   CREATIVE_MODELS,
-  PARAMETRIC_MODELS,
   parametricModelSupportsVision,
 } from '@/lib/utils';
+import { useAvailableParametricModels } from '@/hooks/useAvailableModels';
 import { CreativeModel, MeshFileType, Model } from '@shared/types';
 import type { AppUIMessage } from '@shared/chatAi';
 import { imageFilePartUrl } from '@shared/imageRefs';
@@ -47,8 +47,7 @@ import {
 import { Slider } from '@/components/ui/slider';
 import { Input } from '@/components/ui/input';
 import { useMutation } from '@tanstack/react-query';
-import { supabase } from '@/lib/supabase';
-import { LOCAL_USER_ID } from '@shared/localUser';
+import { supabase, guestUserId } from '@/lib/db';
 import { ModelSelector } from '@/components/ModelSelector';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -651,12 +650,17 @@ function TextAreaChat({
     },
   };
 
+  // Parametric models are filtered down to the providers whose API keys are
+  // configured on the server; creative models run through fal and are gated by
+  // FAL_KEY on the server side, so they are not filtered here.
+  const { models: availableParametricModels } = useAvailableParametricModels();
+
   const memoizedModels = useMemo(() => {
     if (type === 'creative') {
       return CREATIVE_MODELS;
     }
-    return PARAMETRIC_MODELS;
-  }, [type]);
+    return availableParametricModels;
+  }, [type, availableParametricModels]);
 
   // ------------------------------------------------------------
   // Placeholder – Typed-out Animation
@@ -856,7 +860,7 @@ function TextAreaChat({
 
       // Only upload if the local user owns this conversation (shared/public
       // conversations opened read-only still belong to someone else).
-      if (LOCAL_USER_ID === conversation.user_id) {
+      if (guestUserId() === conversation.user_id) {
         // Convert data URL to Blob
         const response = await fetch(preview);
         const blob = await response.blob();
@@ -1138,11 +1142,11 @@ function TextAreaChat({
           supabase.storage
             .from('meshes')
             .remove([
-              `${LOCAL_USER_ID}/${conversation.id}/${mesh.id}.${fileExtension}`,
+              `${guestUserId()}/${conversation.id}/${mesh.id}.${fileExtension}`,
             ]),
           supabase.storage
             .from('images')
-            .remove([`${LOCAL_USER_ID}/${conversation.id}/preview-${mesh.id}`]),
+            .remove([`${guestUserId()}/${conversation.id}/preview-${mesh.id}`]),
         ]);
       } catch (error) {
         console.error('Error removing mesh:', error);
@@ -1158,7 +1162,7 @@ function TextAreaChat({
         try {
           await supabase.storage
             .from('images')
-            .remove([`${LOCAL_USER_ID}/${conversation.id}/${image.id}`]);
+            .remove([`${guestUserId()}/${conversation.id}/${image.id}`]);
         } catch (error) {
           console.error('Error removing image:', error);
         }

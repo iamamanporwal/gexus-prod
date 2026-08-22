@@ -23,6 +23,7 @@ import { Route as ApiCreativeChatRouteImport } from './routes/api/creative-chat'
 import { Route as ApiBillingStatusRouteImport } from './routes/api/billing-status'
 import { Route as ApiBillingProductsRouteImport } from './routes/api/billing-products'
 import { Route as ApiBillingCheckoutRouteImport } from './routes/api/billing-checkout'
+import { Route as ApiAvailableModelsRouteImport } from './routes/api/available-models'
 import { Route as LayoutSubscriptionRouteImport } from './routes/_layout/subscription'
 import { Route as LayoutSettingsRouteImport } from './routes/_layout/settings'
 import { Route as LayoutHistoryRouteImport } from './routes/_layout/history'
@@ -100,6 +101,11 @@ const ApiBillingCheckoutRoute = ApiBillingCheckoutRouteImport.update({
   path: '/api/billing-checkout',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiAvailableModelsRoute = ApiAvailableModelsRouteImport.update({
+  id: '/api/available-models',
+  path: '/api/available-models',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const LayoutSubscriptionRoute = LayoutSubscriptionRouteImport.update({
   id: '/subscription',
   path: '/subscription',
@@ -144,6 +150,7 @@ export interface FileRoutesByFullPath {
   '/history': typeof LayoutHistoryRoute
   '/settings': typeof LayoutSettingsRoute
   '/subscription': typeof LayoutSubscriptionRoute
+  '/api/available-models': typeof ApiAvailableModelsRoute
   '/api/billing-checkout': typeof ApiBillingCheckoutRoute
   '/api/billing-products': typeof ApiBillingProductsRoute
   '/api/billing-status': typeof ApiBillingStatusRoute
@@ -165,6 +172,7 @@ export interface FileRoutesByTo {
   '/history': typeof LayoutHistoryRoute
   '/settings': typeof LayoutSettingsRoute
   '/subscription': typeof LayoutSubscriptionRoute
+  '/api/available-models': typeof ApiAvailableModelsRoute
   '/api/billing-checkout': typeof ApiBillingCheckoutRoute
   '/api/billing-products': typeof ApiBillingProductsRoute
   '/api/billing-status': typeof ApiBillingStatusRoute
@@ -189,6 +197,7 @@ export interface FileRoutesById {
   '/_layout/history': typeof LayoutHistoryRoute
   '/_layout/settings': typeof LayoutSettingsRoute
   '/_layout/subscription': typeof LayoutSubscriptionRoute
+  '/api/available-models': typeof ApiAvailableModelsRoute
   '/api/billing-checkout': typeof ApiBillingCheckoutRoute
   '/api/billing-products': typeof ApiBillingProductsRoute
   '/api/billing-status': typeof ApiBillingStatusRoute
@@ -214,6 +223,7 @@ export interface FileRouteTypes {
     | '/history'
     | '/settings'
     | '/subscription'
+    | '/api/available-models'
     | '/api/billing-checkout'
     | '/api/billing-products'
     | '/api/billing-status'
@@ -235,6 +245,7 @@ export interface FileRouteTypes {
     | '/history'
     | '/settings'
     | '/subscription'
+    | '/api/available-models'
     | '/api/billing-checkout'
     | '/api/billing-products'
     | '/api/billing-status'
@@ -258,6 +269,7 @@ export interface FileRouteTypes {
     | '/_layout/history'
     | '/_layout/settings'
     | '/_layout/subscription'
+    | '/api/available-models'
     | '/api/billing-checkout'
     | '/api/billing-products'
     | '/api/billing-status'
@@ -278,6 +290,7 @@ export interface RootRouteChildren {
   LayoutRoute: typeof LayoutRouteWithChildren
   PrivacyPolicyRoute: typeof PrivacyPolicyRoute
   TermsOfServiceRoute: typeof TermsOfServiceRoute
+  ApiAvailableModelsRoute: typeof ApiAvailableModelsRoute
   ApiBillingCheckoutRoute: typeof ApiBillingCheckoutRoute
   ApiBillingProductsRoute: typeof ApiBillingProductsRoute
   ApiBillingStatusRoute: typeof ApiBillingStatusRoute
@@ -391,6 +404,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiBillingCheckoutRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/available-models': {
+      id: '/api/available-models'
+      path: '/api/available-models'
+      fullPath: '/api/available-models'
+      preLoaderRoute: typeof ApiAvailableModelsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/_layout/subscription': {
       id: '/_layout/subscription'
       path: '/subscription'
@@ -470,6 +490,7 @@ const rootRouteChildren: RootRouteChildren = {
   LayoutRoute: LayoutRouteWithChildren,
   PrivacyPolicyRoute: PrivacyPolicyRoute,
   TermsOfServiceRoute: TermsOfServiceRoute,
+  ApiAvailableModelsRoute: ApiAvailableModelsRoute,
   ApiBillingCheckoutRoute: ApiBillingCheckoutRoute,
   ApiBillingProductsRoute: ApiBillingProductsRoute,
   ApiBillingStatusRoute: ApiBillingStatusRoute,

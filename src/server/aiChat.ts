@@ -5,7 +5,7 @@ import { chatTools, type AppUIMessage, type AppTools } from '@shared/chatAi';
 import { cleanAssistantText, getParametricText } from '@shared/parametricParts';
 import { imageIdFromFilename, imageStoragePath } from '@shared/imageRefs';
 import { normalizeConversationSuggestions } from '@shared/suggestions';
-import { normalizeModelId } from '@shared/models';
+import { normalizeModelId, providerForModel } from '@shared/models';
 import type { Conversation, Message, MeshFileType, Model } from '@shared/types';
 import {
   convertToModelMessages,
@@ -25,7 +25,13 @@ import type { ProviderOptions } from '@ai-sdk/provider-utils';
 import imageType from 'image-type';
 import { z } from 'zod';
 import { billing, BillingClientError } from './billingClient';
-import { corsHeaders, isRecord } from './api';
+import {
+  corsHeaders,
+  isRecord,
+  isUnauthorizedError,
+  requireUser,
+  type AuthedUser,
+} from './api';
 import { env, requiredEnv } from './env';
 import { logError } from './serverLog';
 import {
@@ -36,7 +42,6 @@ import {
 } from './chatToolPersistence';
 import { handleMeshRequest } from './mesh';
 import { getAnonSupabaseClient } from './supabaseClient';
-import { LOCAL_USER } from '@shared/localUser';
 
 /**
  * USD list price per **million** tokens, keyed by the same model IDs the
@@ -327,13 +332,53 @@ function jsonResponse(body: unknown, status: number) {
 const THINKING_BUDGET_TOKENS = 9000;
 const PARAMETRIC_MAX_OUTPUT_TOKENS = 64000;
 
-type ChatProvider = 'anthropic' | 'google' | 'openrouter';
-
-function providerFor(modelId: string): ChatProvider {
-  if (modelId.startsWith('anthropic/')) return 'anthropic';
-  if (modelId.startsWith('google/')) return 'google';
-  return 'openrouter';
+// Wall-clock guard for the agentic loop.
+//
+// A parametric turn is capped at 60 tool-call steps, each a full model round
+// trip, so a complex model can run for many minutes. On a serverless host the
+// platform kills the invocation at its own ceiling, and because the loop is
+// mid-flight when that happens the conversation write is lost along with the
+// response — the user sees their prompt vanish. Stopping ourselves a little
+// early instead means `onFinish` still runs and whatever was generated is
+// persisted and visible.
+//
+// Set CHAT_TIME_BUDGET_SECONDS to ~85% of the platform's function limit. Unset
+// (containers, local dev) means no deadline and the step cap alone governs,
+// which is the historical behaviour.
+function timeBudgetMs(): number | null {
+  const raw = env('CHAT_TIME_BUDGET_SECONDS').trim();
+  if (!raw) return null;
+  const seconds = Number(raw);
+  if (!Number.isFinite(seconds) || seconds <= 0) return null;
+  return seconds * 1000;
 }
+
+// Evaluated by the AI SDK after each completed step, so it can only stop the
+// loop between steps — it never truncates a step already in flight. That is why
+// the budget wants headroom: one more step still has to fit.
+function deadlineStopCondition(budgetMs: number): () => boolean {
+  const startedAt = Date.now();
+  let alreadyStopped = false;
+  return () => {
+    if (alreadyStopped) return true;
+    const elapsed = Date.now() - startedAt;
+    if (elapsed < budgetMs) return false;
+    alreadyStopped = true;
+    logError(
+      new Error('chat time budget exhausted, stopping agent loop early'),
+      {
+        functionName: 'handleAiChatRequest',
+        statusCode: 200,
+        additionalContext: { elapsedMs: elapsed, budgetMs },
+      },
+    );
+    return true;
+  };
+}
+
+// Routing lives in @shared/models so the picker on the client can filter itself
+// down to the providers whose keys are actually set (see /api/available-models).
+const providerFor = providerForModel;
 
 type AnthropicProvider = ReturnType<typeof createAnthropic>;
 type GoogleProvider = ReturnType<typeof createGoogleGenerativeAI>;
@@ -984,11 +1029,19 @@ export async function handleAiChatRequest(req: Request) {
     return jsonResponse({ error: 'Method not allowed' }, 405);
   }
 
-  // No bearer token to forward and no user to look up: authentication has been
-  // removed. RLS is disabled on the app tables, so the plain anon client has
-  // the access this handler needs.
+  // Identity comes from the verified Firebase ID token, not a constant. The
+  // admin client below bypasses Security Rules, so every query in this handler
+  // must be scoped by user.id — see requireUser in ./api.
   const supabaseClient = getAnonSupabaseClient();
-  const user = LOCAL_USER;
+  let user: AuthedUser;
+  try {
+    user = await requireUser(req);
+  } catch (error) {
+    if (isUnauthorizedError(error)) {
+      return jsonResponse({ error: 'Unauthorized' }, 401);
+    }
+    throw error;
+  }
 
   const rawBody = await req.json().catch(() => null);
   if (!isChatBody(rawBody)) {
@@ -1020,7 +1073,7 @@ export async function handleAiChatRequest(req: Request) {
   // service drains the remainder to zero if the actual usage exceeds
   // what's left (see onFinish below).
   try {
-    const status = await billing.getStatus(user.email);
+    const status = await billing.getStatus(user.id);
     if (status.tokens.total <= 0) {
       return jsonResponse(
         {
@@ -1244,6 +1297,10 @@ export async function handleAiChatRequest(req: Request) {
     leafRole === 'user' &&
     !forceBuildToolChoice;
 
+  // Resolved once per request so the deadline is measured from the start of
+  // this turn, not from module load.
+  const chatTimeBudgetMs = timeBudgetMs();
+
   const result = streamText({
     model: chatLanguageModel,
     providerOptions: chatProviderOptions,
@@ -1285,7 +1342,14 @@ export async function handleAiChatRequest(req: Request) {
       }
       return {};
     },
-    stopWhen: stepCountIs(conversation.type === 'parametric' ? 60 : 5),
+    // Whichever fires first: the step cap, or the wall-clock budget when the
+    // host imposes a function timeout (see deadlineStopCondition).
+    stopWhen: [
+      stepCountIs(conversation.type === 'parametric' ? 60 : 5),
+      ...(chatTimeBudgetMs === null
+        ? []
+        : [deadlineStopCondition(chatTimeBudgetMs)]),
+    ],
     // Thinking and visible response tokens share this pool. With adaptive
     // thinking now always-on for Claude 5 / 4.6+, a heavy reasoning turn can
     // spend 10k+ tokens before the answer starts — 32k keeps the visible
@@ -1506,7 +1570,7 @@ export async function handleAiChatRequest(req: Request) {
               // will block the next request. Not an error path —
               // intentional terminal state. Runs after the persist above so
               // its latency never delays the row the client is waiting on.
-              await billing.consume(user.email!, {
+              await billing.consume(user.id, {
                 tokens: billingTokens,
                 operation:
                   conversation.type === 'creative' ? 'chat' : 'parametric',

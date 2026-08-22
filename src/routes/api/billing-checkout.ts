@@ -37,7 +37,7 @@ export const Route = createFileRoute('/api/billing-checkout')({
           ) {
             return json({ error: 'invalid_request' }, 400);
           }
-          const result = await billing.createCheckout(user.email!, {
+          const result = await billing.createCheckout(user.id, {
             priceId: body.priceId,
             successUrl: appUrl(),
             cancelUrl: appUrl(),

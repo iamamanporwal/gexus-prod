@@ -15,8 +15,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { LOCAL_USER_EMAIL, LOCAL_USER_ID } from '@shared/localUser';
-import { supabase } from '@/lib/supabase';
+import { supabase, guestUserId, guestUserLabel } from '@/lib/db';
 import { BILLING_URL } from '@/config/billing';
 import {
   Sheet,
@@ -56,7 +55,7 @@ function DesktopSidebar({ isSidebarOpen, setIsSidebarOpen }: SidebarProps) {
         .from('conversations')
         .select('*')
         .order('updated_at', { ascending: false })
-        .eq('user_id', LOCAL_USER_ID)
+        .eq('user_id', guestUserId())
         .limit(10)
         .overrideTypes<Array<{ settings: ConversationSettings }>>();
 
@@ -83,7 +82,7 @@ function DesktopSidebar({ isSidebarOpen, setIsSidebarOpen }: SidebarProps) {
               {profile?.full_name || 'User'}
             </span>
             <span className="text-xs text-adam-text-tertiary dark:text-gray-400">
-              {LOCAL_USER_EMAIL}
+              {guestUserLabel()}
             </span>
           </div>
         </div>
@@ -261,7 +260,7 @@ function DesktopSidebar({ isSidebarOpen, setIsSidebarOpen }: SidebarProps) {
               <Tooltip>
                 <TooltipTrigger asChild>
                   <a
-                    href="https://github.com/Adam-CAD/CADAM"
+                    href="http://github.com/iamamanporwal/"
                     target="_blank"
                     rel="noopener noreferrer"
                   >
@@ -285,7 +284,7 @@ function DesktopSidebar({ isSidebarOpen, setIsSidebarOpen }: SidebarProps) {
             {/* GitHub Button - Expanded state */}
             {isSidebarOpen && (
               <a
-                href="https://github.com/Adam-CAD/CADAM"
+                href="http://github.com/iamamanporwal/"
                 target="_blank"
                 rel="noopener noreferrer"
               >
@@ -304,7 +303,7 @@ function DesktopSidebar({ isSidebarOpen, setIsSidebarOpen }: SidebarProps) {
               <Tooltip>
                 <TooltipTrigger asChild>
                   <a
-                    href="https://discord.com/invite/HKdXDqAHCs"
+                    href="https://discord.com/invite/TTWcRfvM9z"
                     target="_blank"
                     rel="noopener noreferrer"
                   >
@@ -328,7 +327,7 @@ function DesktopSidebar({ isSidebarOpen, setIsSidebarOpen }: SidebarProps) {
             {/* Discord Button - Expanded state */}
             {isSidebarOpen && (
               <a
-                href="https://discord.com/invite/HKdXDqAHCs"
+                href="https://discord.com/invite/TTWcRfvM9z"
                 target="_blank"
                 rel="noopener noreferrer"
               >
@@ -357,7 +356,7 @@ function DesktopSidebar({ isSidebarOpen, setIsSidebarOpen }: SidebarProps) {
                       {profile?.full_name || 'User'}
                     </p>
                     <p className="text-xs text-muted-foreground">
-                      {LOCAL_USER_EMAIL}
+                      {guestUserLabel()}
                     </p>
                   </div>
                 </div>

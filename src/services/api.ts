@@ -1,8 +1,22 @@
+import { guestIdToken } from '@/lib/db';
 import { z } from 'zod';
 
 export function apiUrl(path: string) {
   const basePath = import.meta.env.BASE_URL.replace(/\/$/, '');
   return `${basePath}/api/${path}`;
+}
+
+/**
+ * Authorization header for the guest's current session, for callers that build
+ * their own fetch — the AI SDK chat transports in ChatSession and PromptView.
+ *
+ * Returns an empty object rather than throwing when there is no session, so a
+ * request made before the boot gate resolves gets a clean 401 from the server
+ * instead of an unhandled rejection in the transport.
+ */
+export async function authHeaders(): Promise<Record<string, string>> {
+  const token = await guestIdToken();
+  return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
 export async function apiJson(
@@ -19,13 +33,16 @@ export async function apiJson<T>(
   init: RequestInit = {},
   schema?: z.ZodType<T>,
 ): Promise<T | unknown> {
-  // No Authorization header: there are no sessions. The server resolves the
-  // local identity itself (see src/server/api.ts requireUser).
+  // The anonymous session's ID token. requireUser() in src/server/api.ts
+  // verifies it and derives the caller's uid from it — without this header
+  // every request is a 401, since the server no longer assumes an identity.
   const url = apiUrl(path);
+  const token = await guestIdToken();
   const response = await fetch(url, {
     ...init,
     headers: {
       'Content-Type': 'application/json',
+      ...(token && { Authorization: `Bearer ${token}` }),
       ...init.headers,
     },
   });

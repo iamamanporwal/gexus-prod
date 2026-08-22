@@ -1,9 +1,13 @@
 import { useNavigate } from '@tanstack/react-router';
 import { useToast } from '@/hooks/use-toast';
 import { errorMessage } from '@/lib/errorMessage';
-import { LOCAL_USER_ID } from '@shared/localUser';
 import { useBilling } from '@/hooks/useBilling';
-import { supabase } from '@/lib/supabase';
+import {
+  DEFAULT_PARAMETRIC_MODEL,
+  resolveUsableModel,
+  useAvailableParametricModels,
+} from '@/hooks/useAvailableModels';
+import { supabase, guestUserId } from '@/lib/db';
 import TextAreaChat from '@/components/TextAreaChat';
 import { useQueryClient, useMutation } from '@tanstack/react-query';
 import { useState, useMemo, useEffect } from 'react';
@@ -20,7 +24,7 @@ import posthog from 'posthog-js';
 import * as Sentry from '@sentry/react';
 import { useProfile } from '@/services/profileService';
 import { useLayoutContext } from '@/contexts/LayoutContext';
-import { apiUrl } from '@/services/api';
+import { apiUrl, authHeaders } from '@/services/api';
 import {
   DefaultChatTransport,
   lastAssistantMessageIsCompleteWithToolCalls,
@@ -49,7 +53,20 @@ export function PromptView() {
 
   const [type, setType] = useState<'parametric' | 'creative'>('parametric');
 
-  const [model, setModel] = useState<Model>('openai/gpt-5.6-sol');
+  const [model, setModel] = useState<Model>(DEFAULT_PARAMETRIC_MODEL);
+
+  // The picker only offers models whose provider key is configured. The default
+  // above is one of them in a full setup, but not necessarily in a partial one,
+  // so snap to a reachable model once the availability query resolves. Guarded
+  // on `type` so it never overwrites a creative-mode selection.
+  const { models: availableParametricModels, isLoading: isModelsLoading } =
+    useAvailableParametricModels();
+
+  useEffect(() => {
+    if (isModelsLoading || type !== 'parametric') return;
+    const usable = resolveUsableModel(model, availableParametricModels);
+    if (usable !== model) setModel(usable);
+  }, [isModelsLoading, type, model, availableParametricModels]);
 
   const handleTypeChange = (newType: 'parametric' | 'creative') => {
     setType(newType);
@@ -57,7 +74,9 @@ export function PromptView() {
     if (newType === 'creative') {
       setModel('quality');
     } else {
-      setModel('openai/gpt-5.6-sol');
+      setModel(
+        resolveUsableModel(DEFAULT_PARAMETRIC_MODEL, availableParametricModels),
+      );
     }
   };
 
@@ -131,7 +150,7 @@ export function PromptView() {
         .insert([
           {
             id: conversationId,
-            user_id: LOCAL_USER_ID,
+            user_id: guestUserId(),
             title: 'New Conversation',
             type: type,
             settings: {
@@ -147,7 +166,7 @@ export function PromptView() {
       await ensureInputRecords({
         parts,
         conversationId: conversation.id,
-        userId: LOCAL_USER_ID,
+        userId: guestUserId(),
       });
       if (parts.length === 0) throw new Error('No message parts to send');
 
@@ -171,7 +190,10 @@ export function PromptView() {
           api: apiUrl(
             type === 'creative' ? 'creative-chat' : 'parametric-chat',
           ),
-          prepareSendMessagesRequest: ({ body }) => ({
+          // The chat endpoints verify the Firebase ID token like every other
+          // route, so the streaming transport has to carry it too.
+          prepareSendMessagesRequest: async ({ body }) => ({
+            headers: await authHeaders(),
             body: {
               conversationId: conversation.id,
               model,
@@ -256,7 +278,7 @@ export function PromptView() {
                   onSubmit={handleGenerate}
                   conversation={{
                     id: draftConversationId,
-                    user_id: LOCAL_USER_ID,
+                    user_id: guestUserId(),
                   }}
                   placeholder="Start building with Adam..."
                   type={type}

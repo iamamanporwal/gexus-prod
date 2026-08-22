@@ -354,23 +354,14 @@ export async function handleFalWebhookRequest(request: Request) {
       .eq('id', id);
   }
 
-  debugLog('=== SENDING BROADCAST ===');
-  debugLog('Event:', 'mesh-updated');
-  debugLog('Mesh ID:', id);
-
-  const channel = supabaseClient.channel(`mesh-updates-${meshData.user_id}`);
-  const broadcastResult = await channel.send({
-    type: 'broadcast',
-    event: 'mesh-updated',
-    payload: {
-      kind: mode === 'preview' ? 'preview' : 'mesh',
-      id,
-      status: meshStatus,
-      conversation_id: meshData.conversation_id,
-    },
-  });
-
-  debugLog('Broadcast result:', broadcastResult);
+  // No broadcast any more. The mesh row's status was already updated above, and
+  // the client watches that document (see lib/firebaseMeshWatch.ts), so writing
+  // the row *is* the notification. Firestore has no pub/sub equivalent, and it
+  // turns out not to need one — this is strictly more reliable, because a
+  // client that was reloading when the broadcast fired used to miss it entirely
+  // and sit on a spinner until refreshed.
+  debugLog('=== MESH STATUS WRITTEN ===');
+  debugLog('Mesh ID:', id, 'status:', meshStatus);
 
   return new Response(JSON.stringify({ ok: true }), { status: 200 });
 }

@@ -1,4 +1,4 @@
-import { supabase } from '@/lib/supabase';
+import { supabase } from '@/lib/db';
 import { useQuery } from '@tanstack/react-query';
 
 export const useGlbPreview = ({ id }: { id?: string }) => {

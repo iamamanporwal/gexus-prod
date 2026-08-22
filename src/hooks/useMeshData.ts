@@ -1,5 +1,5 @@
 import { useConversation } from '@/contexts/ConversationContext';
-import { supabase } from '@/lib/supabase';
+import { supabase } from '@/lib/db';
 import { MeshData } from '@shared/types';
 import { useQuery } from '@tanstack/react-query';
 

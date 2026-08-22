@@ -3,15 +3,14 @@ import { SuggestionPills } from '@/components/chat/SuggestionPills';
 import { LimitReachedMessage } from '@/components/LimitReachedMessage';
 import TextAreaChat from '@/components/TextAreaChat';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { LOCAL_USER_ID } from '@shared/localUser';
 import { useCachedAiChat } from '@/hooks/useCachedAiChat';
 import { useToast } from '@/hooks/use-toast';
 import { previewScadColoredViaToolWorker } from '@/worker/toolWorker';
-import { apiUrl } from '@/services/api';
+import { apiUrl, authHeaders } from '@/services/api';
 import { messageRowToChatMessage, type ChatMessage } from '@/lib/aiMessages';
 import { collectStuckToolRecovery } from '@/components/chat/stuckToolRecovery';
 import { AssistantRowMissingError } from '@/services/messageService';
-import { supabase } from '@/lib/supabase';
+import { supabase, guestUserId } from '@/lib/db';
 import {
   generateColoredPreview,
   generateInspectionPreview,
@@ -207,7 +206,10 @@ export function ChatSession({
             : 'parametric-chat',
         ),
         fetch: billingAwareFetch,
-        prepareSendMessagesRequest: ({ body }) => ({
+        // The chat endpoints verify the Firebase ID token like every other
+        // route, so the streaming transport has to carry it too.
+        prepareSendMessagesRequest: async ({ body }) => ({
+          headers: await authHeaders(),
           body: {
             conversationId: conversation.id,
             model,
@@ -465,7 +467,7 @@ export function ChatSession({
           const inspectionBlob = await fetch(inspectionDataUrl).then(
             (response) => response.blob(),
           );
-          const inspectionPath = `${LOCAL_USER_ID}/${conversation.id}/inspection-preview-${toolCall.toolCallId}`;
+          const inspectionPath = `${guestUserId()}/${conversation.id}/inspection-preview-${toolCall.toolCallId}`;
           const { error: inspectionUploadError } = await supabase.storage
             .from('images')
             .upload(inspectionPath, inspectionBlob, {
@@ -492,7 +494,7 @@ export function ChatSession({
           const thumbnailBlob = await fetch(thumbnailDataUrl).then((response) =>
             response.blob(),
           );
-          const previewPath = `${LOCAL_USER_ID}/${conversation.id}/preview-${toolCall.toolCallId}`;
+          const previewPath = `${guestUserId()}/${conversation.id}/preview-${toolCall.toolCallId}`;
           const { error: thumbnailUploadError } = await supabase.storage
             .from('images')
             .upload(previewPath, thumbnailBlob, {

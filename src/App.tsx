@@ -6,7 +6,8 @@ import { Outlet } from '@tanstack/react-router';
 import { MeshFilesProvider } from '@/contexts/MeshFilesContext';
 import { PostHogProvider } from '@/contexts/PostHogProvider';
 import { ErrorView } from '@/views/ErrorView';
-import { isSupabaseConfigMissing } from '@/lib/supabase';
+import { isSupabaseConfigMissing } from '@/lib/db';
+import { GuestSessionGate } from '@/components/GuestSessionGate';
 
 const queryClient = new QueryClient();
 
@@ -28,16 +29,22 @@ function App({ error }: { error?: unknown }) {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <MeshRealtimeProvider>
-        <PostHogProvider>
-          <MeshFilesProvider>
-            <TooltipProvider delayDuration={0}>
-              <Toaster />
-              {error !== undefined ? <ErrorView error={error} /> : <Outlet />}
-            </TooltipProvider>
-          </MeshFilesProvider>
-        </PostHogProvider>
-      </MeshRealtimeProvider>
+      {/* Inside QueryClientProvider (some children use react-query) but outside
+          everything that reads the uid. MeshRealtimeProvider calls
+          guestUserId() in an effect, so it must not mount before the session
+          resolves. */}
+      <GuestSessionGate>
+        <MeshRealtimeProvider>
+          <PostHogProvider>
+            <MeshFilesProvider>
+              <TooltipProvider delayDuration={0}>
+                <Toaster />
+                {error !== undefined ? <ErrorView error={error} /> : <Outlet />}
+              </TooltipProvider>
+            </MeshFilesProvider>
+          </PostHogProvider>
+        </MeshRealtimeProvider>
+      </GuestSessionGate>
     </QueryClientProvider>
   );
 }

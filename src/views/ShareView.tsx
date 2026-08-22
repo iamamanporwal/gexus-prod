@@ -7,7 +7,7 @@ import { MeshPreview } from '@/components/viewer/MeshPreview';
 import { OpenSCADPreview } from '@/components/viewer/OpenSCADViewer';
 import { ConversationContext } from '@/contexts/ConversationContext';
 import { messageRowToChatMessage } from '@/lib/aiMessages';
-import { supabase } from '@/lib/supabase';
+import { supabase } from '@/lib/db';
 import { updateParameter } from '@/lib/utils';
 import parseParameters from '@shared/parseParameters';
 import type { AppUIMessage } from '@shared/chatAi';

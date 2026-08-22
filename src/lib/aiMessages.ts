@@ -1,4 +1,4 @@
-import { supabase } from '@/lib/supabase';
+import { supabase } from '@/lib/db';
 import type { AppUIMessage } from '@shared/chatAi';
 import { asParametricParts } from '@shared/parametricParts';
 import type { Message } from '@shared/types';

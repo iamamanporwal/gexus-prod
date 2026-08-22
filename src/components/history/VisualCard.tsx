@@ -30,7 +30,7 @@ import {
 import { formatDistanceToNow } from 'date-fns';
 import { HistoryConversation } from '../../types/misc.ts';
 import { GoodEarth } from '../icons/ui/GoodEarth';
-import { supabase } from '@/lib/supabase';
+import { supabase } from '@/lib/db';
 import { useOpenSCAD } from '@/hooks/useOpenSCAD';
 import { usePreview } from '@/hooks/usePreview';
 import { generatePreview, generateColoredPreview } from '@/utils/meshUtils';

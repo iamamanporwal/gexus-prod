@@ -14,7 +14,7 @@ export const Route = createFileRoute('/api/billing-status')({
       GET: async ({ request }) => {
         try {
           const user = await requireUser(request);
-          return json(await billing.getStatus(user.email!));
+          return json(await billing.getStatus(user.id));
         } catch (err) {
           return json(
             {

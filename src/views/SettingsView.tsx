@@ -1,7 +1,7 @@
+import { guestUserLabel } from '@/lib/db';
 import { Button } from '@/components/ui/button';
 import { getLevel } from '@/lib/billing';
 import { useBilling } from '@/hooks/useBilling';
-import { LOCAL_USER_EMAIL } from '@shared/localUser';
 import { Loader2, Sparkles } from 'lucide-react';
 import { Link } from '@tanstack/react-router';
 import { useTokenPackPurchase } from '@/services/subscriptionService';
@@ -162,7 +162,7 @@ export default function SettingsView() {
                     />
                   ) : (
                     <div className="min-w-0 truncate text-sm text-adam-neutral-50">
-                      {profile?.full_name || LOCAL_USER_EMAIL}
+                      {profile?.full_name || guestUserLabel()}
                     </div>
                   )}
                 </div>
@@ -205,7 +205,7 @@ export default function SettingsView() {
               <div className="py-5">
                 <div className="text-sm text-adam-neutral-50">Email</div>
                 <div className="mt-0.5 truncate text-xs text-adam-neutral-200">
-                  {LOCAL_USER_EMAIL}
+                  {guestUserLabel()}
                 </div>
               </div>
             </div>

@@ -33,6 +33,11 @@ dist-ssr
 # other secret files
 .env.local
 .env.langfuse
+# Any local env variant or backup — these hold live provider API keys.
+.env.local.*
+.env.*.bak*
+# ...except the checked-in template, which is documentation, not secrets.
+!.env.local.template
 
 # TanStack build cache
 .tanstack

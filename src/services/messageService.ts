@@ -1,5 +1,5 @@
 import { useConversation } from '@/contexts/ConversationContext';
-import { supabase } from '@/lib/supabase';
+import { supabase } from '@/lib/db';
 import type { AppUIMessage } from '@shared/chatAi';
 import type { Conversation, Message } from '@shared/types';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';

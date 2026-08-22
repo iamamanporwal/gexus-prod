@@ -1,5 +1,5 @@
 import { useConversation } from '@/contexts/ConversationContext';
-import { supabase } from '@/lib/supabase';
+import { supabase } from '@/lib/db';
 import { Prompt } from '@shared/types';
 import { useQueries, useQuery } from '@tanstack/react-query';
 

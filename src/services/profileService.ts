@@ -1,5 +1,4 @@
-import { LOCAL_USER_ID } from '@shared/localUser';
-import { supabase } from '@/lib/supabase';
+import { supabase, guestUserId } from '@/lib/db';
 import { Profile } from '@shared/types';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
@@ -10,12 +9,12 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 // profiles row is now the only source for the name.
 export function useProfile() {
   return useQuery({
-    queryKey: ['profile', LOCAL_USER_ID],
+    queryKey: ['profile', guestUserId()],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('profiles')
         .select('*')
-        .eq('user_id', LOCAL_USER_ID)
+        .eq('user_id', guestUserId())
         .single();
 
       if (error) throw error;
@@ -67,7 +66,7 @@ export function useUpdateProfile() {
           }),
           updated_at: new Date().toISOString(),
         })
-        .eq('user_id', LOCAL_USER_ID)
+        .eq('user_id', guestUserId())
         .select()
         .single();
 
@@ -77,7 +76,7 @@ export function useUpdateProfile() {
     },
     onSuccess: (data) => {
       if (data) {
-        queryClient.setQueryData(['profile', LOCAL_USER_ID], data);
+        queryClient.setQueryData(['profile', guestUserId()], data);
       }
     },
   });
@@ -104,7 +103,7 @@ export function useUploadAvatar() {
       }
 
       // Upload image with upsert to automatically replace existing
-      const filePath = `${LOCAL_USER_ID}/profile`;
+      const filePath = `${guestUserId()}/profile`;
 
       const { error: uploadError } = await supabase.storage
         .from('images')
@@ -122,7 +121,7 @@ export function useUploadAvatar() {
           avatar_path: filePath,
           updated_at: new Date().toISOString(),
         })
-        .eq('user_id', LOCAL_USER_ID)
+        .eq('user_id', guestUserId())
         .select()
         .single();
 
@@ -133,7 +132,7 @@ export function useUploadAvatar() {
     onSuccess: (data) => {
       if (data) {
         // Update profile cache
-        queryClient.setQueryData(['profile', LOCAL_USER_ID], data);
+        queryClient.setQueryData(['profile', guestUserId()], data);
         // Invalidate avatar URL cache to fetch new image
         queryClient.invalidateQueries({
           queryKey: ['avatar-url', data.avatar_path],

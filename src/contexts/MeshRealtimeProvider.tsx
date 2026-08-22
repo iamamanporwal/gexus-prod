@@ -1,8 +1,8 @@
 import { useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
-import { supabase } from '@/lib/supabase';
-import { LOCAL_USER_ID } from '@shared/localUser';
+import { guestUserId } from '@/lib/db';
+import { watchMeshUpdates } from '@/lib/firebaseMeshWatch';
 import { useProfile } from '@/services/profileService';
 
 // Realtime mesh/preview invalidation + the "3D model is ready" notification.
@@ -37,57 +37,39 @@ export function MeshRealtimeProvider({
   }, [notificationsEnabled]);
 
   useEffect(() => {
-    const channel = supabase
-      .channel(`mesh-updates-${LOCAL_USER_ID}`)
-      .on(
-        'broadcast',
-        {
-          event: 'mesh-updated',
-        },
-        async ({ payload }) => {
-          if (payload.kind === 'mesh') {
-            queryClient.invalidateQueries({
-              queryKey: ['meshData', payload.id],
+    // Was a Supabase broadcast channel. Firestore has no pub/sub, but the thing
+    // being announced is a document change, so watching the document is both
+    // available and better: a broadcast sent while this client was reloading
+    // was lost forever, leaving a spinner up until a manual refresh.
+    const unsubscribe = watchMeshUpdates(guestUserId(), async (update) => {
+      queryClient.invalidateQueries({ queryKey: ['meshData', update.id] });
+      queryClient.invalidateQueries({ queryKey: ['mesh', update.id] });
+      queryClient.invalidateQueries({ queryKey: ['preview', update.id] });
+      queryClient.invalidateQueries({ queryKey: ['billing', 'status'] });
+
+      if (
+        update.status === 'success' &&
+        notificationsEnabled &&
+        !window.location.pathname.includes(`/editor/${update.conversation_id}`)
+      ) {
+        if (await ensurePermission()) {
+          const notification = new Notification('3D model is ready', {
+            body: 'Your generated 3D model has finished. Click to open.',
+            icon: `${import.meta.env.BASE_URL}/Adam-Logo.png`,
+          });
+          notification.onclick = () => {
+            window.focus();
+            navigate({
+              to: '/editor/$id',
+              params: { id: update.conversation_id },
             });
-            queryClient.invalidateQueries({ queryKey: ['mesh', payload.id] });
-            queryClient.invalidateQueries({ queryKey: ['billing', 'status'] });
+            notification.close();
+          };
+        }
+      }
+    });
 
-            if (
-              payload.status === 'success' &&
-              notificationsEnabled &&
-              !window.location.pathname.includes(
-                `/editor/${payload.conversation_id}`,
-              )
-            ) {
-              if (await ensurePermission()) {
-                const notification = new Notification('3D model is ready', {
-                  body: 'Your generated 3D model has finished. Click to open.',
-                  icon: `${import.meta.env.BASE_URL}/Adam-Logo.png`,
-                });
-                notification.onclick = () => {
-                  window.focus();
-                  navigate({
-                    to: '/editor/$id',
-                    params: { id: payload.conversation_id },
-                  });
-                  notification.close();
-                };
-              }
-            }
-          }
-
-          if (payload.kind === 'preview') {
-            queryClient.invalidateQueries({
-              queryKey: ['preview', payload.id],
-            });
-          }
-        },
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
+    return unsubscribe;
   }, [queryClient, navigate, notificationsEnabled]);
 
   return <>{children}</>;

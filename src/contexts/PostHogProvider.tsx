@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { useLocation } from '@tanstack/react-router';
 import { analytics, initPostHog } from '@/lib/posthog';
-import { LOCAL_USER } from '@shared/localUser';
+import { guestUserId } from '@/lib/db';
 
 interface PostHogProviderProps {
   children: React.ReactNode;
@@ -15,10 +15,14 @@ export function PostHogProvider({ children }: PostHogProviderProps) {
     initPostHog();
   }, []);
 
-  // Identify the local user. There is no sign-in, so the identity never
-  // changes and this runs once rather than tracking a session.
+  // Identify the guest by their anonymous-auth uid. Stable per browser, so
+  // repeat visits attribute to the same person — which is the whole reason to
+  // identify at all. No email is sent: an anonymous user has none, and a
+  // synthetic one would pollute PostHog with addresses that look real.
+  //
+  // Safe to read synchronously: this provider mounts inside GuestSessionGate.
   useEffect(() => {
-    analytics.identify(LOCAL_USER.id, { email: LOCAL_USER.email });
+    analytics.identify(guestUserId());
   }, []);
 
   // Track page views on route change
