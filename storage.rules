@@ -23,6 +23,15 @@ rules_version = '2';
 // A shared conversation renders its text and geometry; its stored image assets
 // will 403 for a non-owner. Making those public means either a signed URL
 // minted server-side (the server bypasses these rules) or a `public/` prefix.
+//
+// Every block below spells out `create, update` and `delete` separately rather
+// than using `write`. That is deliberate, and it is load-bearing: on a delete
+// request `request.resource` is null, so a size check folded into `write`
+// evaluates against null and denies the delete. The first version did exactly
+// that, and it silently broke every client-side delete — conversation and mesh
+// deletion (TextAreaChat, HistoryView) and overflow-blob cleanup on cascade,
+// all of which run with the user's own credentials. Size only constrains the
+// bytes being written; it has no business gating their removal.
 
 service firebase.storage {
   match /b/{bucket}/o {
@@ -43,24 +52,30 @@ service firebase.storage {
 
     match /images/{uid}/{allPaths=**} {
       allow read: if owns(uid);
-      allow write: if owns(uid) && reasonableSize();
+      allow create, update: if owns(uid) && reasonableSize();
+      allow delete: if owns(uid);
     }
 
     match /meshes/{uid}/{allPaths=**} {
       allow read: if owns(uid);
-      allow write: if owns(uid) && reasonableSize();
+      allow create, update: if owns(uid) && reasonableSize();
+      allow delete: if owns(uid);
     }
 
     match /previews/{uid}/{allPaths=**} {
       allow read: if owns(uid);
-      allow write: if owns(uid) && reasonableSize();
+      allow create, update: if owns(uid) && reasonableSize();
+      allow delete: if owns(uid);
     }
 
     // Offloaded Firestore fields. Same ownership rule, larger ceiling: these
     // exist precisely because the payload was too big for a 1 MB document.
+    // Delete matters more here than anywhere else — a denied delete orphans a
+    // blob that nothing will ever reference again.
     match /overflow/{uid}/{allPaths=**} {
       allow read: if owns(uid);
-      allow write: if owns(uid) && request.resource.size < 50 * 1024 * 1024;
+      allow create, update: if owns(uid) && request.resource.size < 50 * 1024 * 1024;
+      allow delete: if owns(uid);
     }
 
     // Server-written overflow. Admin credentials bypass these rules, so no
@@ -74,7 +89,8 @@ service firebase.storage {
     // reads stay open, writes are owner-only.
     match /temp-multiview/{allPaths=**} {
       allow read: if true;
-      allow write: if signedIn() && reasonableSize();
+      allow create, update: if signedIn() && reasonableSize();
+      allow delete: if signedIn();
     }
   }
 }
