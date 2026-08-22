@@ -2,7 +2,7 @@ import { useOpenSCAD } from '@/hooks/useOpenSCAD';
 import { useCallback, useEffect, useState, useContext, useRef } from 'react';
 import { ThreeScene } from '@/components/viewer/ThreeScene';
 import { STLLoader } from 'three/addons/loaders/STLLoader.js';
-import { BufferGeometry, Group } from 'three';
+import { BufferGeometry, Group, Mesh } from 'three';
 import { CircleAlert, Loader2, Wrench } from 'lucide-react';
 import {
   buildColoredGroupFromOff,
@@ -12,6 +12,7 @@ import { Button } from '@/components/ui/button';
 import OpenSCADError from '@/lib/OpenSCADError';
 import { cn } from '@/lib/utils';
 import { MeshFilesContext } from '@/contexts/MeshFilesContext';
+import { usePartVisibility } from '@/contexts/PartVisibilityContext';
 import { createDXFProjectionCode } from '@/utils/dxfUtils';
 import { DxfExporter } from '@/utils/downloadUtils';
 
@@ -66,6 +67,9 @@ export function OpenSCADPreview({
   } = useOpenSCAD();
   const [geometry, setGeometry] = useState<BufferGeometry | null>(null);
   const [coloredGroup, setColoredGroup] = useState<Group | null>(null);
+  // Absent when this preview renders outside a PartVisibilityProvider
+  // (thumbnails, cards) — those keep every part visible.
+  const partVisibility = usePartVisibility();
   // Use context directly to avoid throwing if provider is not mounted (e.g. VisualCard)
   const meshFilesCtx = useContext(MeshFilesContext);
   // Track which files we've written to avoid re-writing unchanged blobs
@@ -231,6 +235,40 @@ export function OpenSCADPreview({
       cancelled = true;
     };
   }, [offOutput]);
+
+  // Publish the part keys the current model actually produced so the
+  // parameter panel can offer a row for unpainted geometry, which has no
+  // corresponding OpenSCAD parameter to hang a toggle off.
+  const registerParts = partVisibility?.registerParts;
+  useEffect(() => {
+    if (!registerParts) return;
+    if (!coloredGroup) {
+      registerParts([]);
+      return;
+    }
+    const keys = new Set<string>();
+    coloredGroup.traverse((obj) => {
+      if (obj instanceof Mesh && typeof obj.userData.partKey === 'string') {
+        keys.add(obj.userData.partKey);
+      }
+    });
+    registerParts([...keys]);
+  }, [coloredGroup, registerParts]);
+
+  // Apply hidden-part state to the live group. Toggling visibility on the
+  // existing meshes keeps this instant — no OpenSCAD recompile, no geometry
+  // rebuild. Re-runs when a recompile swaps in a fresh group so hidden parts
+  // stay hidden across parameter edits.
+  const hiddenParts = partVisibility?.hidden;
+  useEffect(() => {
+    if (!coloredGroup) return;
+    coloredGroup.traverse((obj) => {
+      if (!(obj instanceof Mesh)) return;
+      const partKey = obj.userData.partKey;
+      if (typeof partKey !== 'string') return;
+      obj.visible = !hiddenParts?.has(partKey);
+    });
+  }, [coloredGroup, hiddenParts]);
 
   // Release the last mounted group's and geometry's GPU resources on unmount.
   useEffect(() => {

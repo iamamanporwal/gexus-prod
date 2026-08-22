@@ -27,6 +27,11 @@ import {
   CollapsibleTrigger,
 } from '@/components/ui/collapsible';
 import { ParameterInput } from '@/components/parameter/ParameterInput';
+import { PartVisibilityToggle } from '@/components/parameter/PartVisibilityToggle';
+import {
+  usePartVisibility,
+  UNPAINTED_PART_KEY,
+} from '@/contexts/PartVisibilityContext';
 import {
   validateParameterValue,
   isColorParameter,
@@ -74,6 +79,15 @@ export function ParameterSection({
   }, [parameters]);
   const [colorsOpen, setColorsOpen] = useState(true);
   const [dimensionsOpen, setDimensionsOpen] = useState(true);
+  const partVisibility = usePartVisibility();
+  // Faces with no color() call render in the brand fallback and have no
+  // parameter of their own, so give them an explicit row — otherwise hiding
+  // every listed layer could still leave geometry on screen with no way to
+  // clear it.
+  const hasUnpaintedPart =
+    partVisibility?.availableKeys.has(UNPAINTED_PART_KEY) ?? false;
+  const hiddenCount = partVisibility?.hidden.size ?? 0;
+  const layerCount = colorParameters.length + (hasUnpaintedPart ? 1 : 0);
 
   // Debounce timer for compilation
   const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -262,22 +276,38 @@ export function ParameterSection({
                 onOpenChange={setColorsOpen}
                 className="mt-3 border-t border-adam-neutral-700/60 pt-3"
               >
-                <CollapsibleTrigger
-                  aria-label={`${colorsOpen ? 'Collapse' : 'Expand'} color parameters`}
-                  className="group flex w-full items-center justify-between gap-2 rounded-md py-1 text-xs font-semibold text-adam-text-primary transition-colors focus:outline-none"
-                >
-                  <span className="flex items-center gap-2">
-                    Colors
-                    <span className="text-[10px] text-adam-neutral-400">
-                      {colorParameters.length}
+                <div className="flex items-center gap-2">
+                  <CollapsibleTrigger
+                    aria-label={`${colorsOpen ? 'Collapse' : 'Expand'} layers`}
+                    className="group flex flex-1 items-center justify-between gap-2 rounded-md py-1 text-xs font-semibold text-adam-text-primary transition-colors focus:outline-none"
+                  >
+                    <span className="flex items-center gap-2">
+                      Layers
+                      <span className="text-[10px] text-adam-neutral-400">
+                        {layerCount}
+                      </span>
+                      {hiddenCount > 0 && (
+                        <span className="text-[10px] font-normal text-adam-neutral-400">
+                          {hiddenCount} hidden
+                        </span>
+                      )}
                     </span>
-                  </span>
-                  <ChevronDown
-                    className={`h-3.5 w-3.5 text-adam-neutral-400 transition-all duration-200 group-hover:text-adam-text-primary ${
-                      colorsOpen ? 'rotate-180' : ''
-                    }`}
-                  />
-                </CollapsibleTrigger>
+                    <ChevronDown
+                      className={`h-3.5 w-3.5 text-adam-neutral-400 transition-all duration-200 group-hover:text-adam-text-primary ${
+                        colorsOpen ? 'rotate-180' : ''
+                      }`}
+                    />
+                  </CollapsibleTrigger>
+                  {hiddenCount > 0 && partVisibility && (
+                    <button
+                      type="button"
+                      onClick={partVisibility.showAll}
+                      className="flex-shrink-0 rounded-md px-1.5 py-0.5 text-[10px] font-normal text-adam-neutral-400 transition-colors focus:outline-none [@media(hover:hover)]:hover:bg-adam-neutral-800 [@media(hover:hover)]:hover:text-adam-text-primary"
+                    >
+                      Show all
+                    </button>
+                  )}
+                </div>
                 <CollapsibleContent className="data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0">
                   <div className="mt-3 flex flex-col gap-3">
                     {colorParameters.map((param) => (
@@ -287,6 +317,31 @@ export function ParameterSection({
                         handleCommit={handleCommit}
                       />
                     ))}
+                    {hasUnpaintedPart && partVisibility && (
+                      <div className="grid w-full grid-cols-[80px_1fr] items-center gap-3">
+                        <span
+                          className={`overflow-hidden text-ellipsis text-xs transition-colors ${
+                            partVisibility.isHidden(UNPAINTED_PART_KEY)
+                              ? 'text-adam-neutral-500 line-through'
+                              : 'text-adam-neutral-300'
+                          }`}
+                          title="Geometry with no color assigned"
+                        >
+                          Unpainted
+                        </span>
+                        <div className="flex min-w-0 items-center gap-1">
+                          <PartVisibilityToggle
+                            isHidden={partVisibility.isHidden(
+                              UNPAINTED_PART_KEY,
+                            )}
+                            onToggle={() =>
+                              partVisibility.toggle(UNPAINTED_PART_KEY)
+                            }
+                            label="unpainted geometry"
+                          />
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </CollapsibleContent>
               </Collapsible>

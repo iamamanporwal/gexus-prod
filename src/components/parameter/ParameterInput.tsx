@@ -1,5 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Parameter } from '@shared/types';
+import { usePartVisibility } from '@/contexts/PartVisibilityContext';
+import { PartVisibilityToggle } from '@/components/parameter/PartVisibilityToggle';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import {
@@ -20,6 +22,9 @@ export function ParameterInput({
   handleCommit: (param: Parameter, value: Parameter['value']) => void;
 }) {
   const [paramState, setParamState] = useState<Parameter>(param);
+  // Undefined outside a PartVisibilityProvider — the eye toggle is simply
+  // omitted there rather than rendering a control that does nothing.
+  const partVisibility = usePartVisibility();
 
   useEffect(() => {
     setParamState(param);
@@ -154,19 +159,40 @@ export function ParameterInput({
       const labelText =
         paramState.displayName.replace(/\s*color$/i, '').trim() ||
         paramState.displayName;
+      const isPartHidden = partVisibility?.isHidden(hex) ?? false;
       return (
         <div className="grid w-full grid-cols-[80px_1fr] items-center gap-3">
           <Label
-            className="overflow-hidden text-ellipsis text-xs font-normal text-adam-neutral-300"
+            className={`overflow-hidden text-ellipsis text-xs font-normal transition-colors ${
+              isPartHidden
+                ? 'text-adam-neutral-500 line-through'
+                : 'text-adam-neutral-300'
+            }`}
             htmlFor={paramState.name}
             title={paramState.displayName}
           >
             {labelText}
           </Label>
-          <ColorPicker
-            color={hex}
-            onChange={(next) => handleValueCommit(next.toUpperCase())}
-          />
+          <div className="flex min-w-0 items-center gap-1">
+            <ColorPicker
+              color={hex}
+              onChange={(next) => {
+                const nextHex = next.toUpperCase();
+                // Carry the hidden state across the recolor — the part's
+                // identity in the viewer is its hex, so without this a hidden
+                // part would pop back into view on any color tweak.
+                partVisibility?.remap(hex, nextHex);
+                handleValueCommit(nextHex);
+              }}
+            />
+            {partVisibility && (
+              <PartVisibilityToggle
+                isHidden={isPartHidden}
+                onToggle={() => partVisibility.toggle(hex)}
+                label={labelText}
+              />
+            )}
+          </div>
         </div>
       );
     }

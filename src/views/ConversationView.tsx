@@ -26,6 +26,7 @@ import {
   PanelGroup,
   PanelResizeHandle,
 } from 'react-resizable-panels';
+import { PartVisibilityProvider } from '@/contexts/PartVisibilityContext';
 
 const PANEL_SIZES = {
   CHAT: { DEFAULT: 30, MIN: 384, MAX: 550 },
@@ -63,7 +64,7 @@ interface ConversationViewProps {
  * need the live container width to convert from the pixel constraints we
  * actually want to enforce.
  */
-export function ConversationView({
+function ConversationViewShell({
   chatPanelSlot,
   previewSlot,
   parametersSlot,
@@ -438,5 +439,20 @@ export function ConversationView({
         </Panel>
       </PanelGroup>
     </div>
+  );
+}
+
+/**
+ * Wraps the layout shell so the parameters panel and the preview share
+ * per-layer visibility state — the eye toggles live in one slot and the meshes
+ * they hide live in another, and this is their nearest common ancestor. State
+ * is per-mount, so switching conversations (which remounts the view) starts
+ * with every layer visible.
+ */
+export function ConversationView(props: ConversationViewProps) {
+  return (
+    <PartVisibilityProvider>
+      <ConversationViewShell {...props} />
+    </PartVisibilityProvider>
   );
 }

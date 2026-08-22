@@ -6,6 +6,26 @@ import {
   MeshStandardMaterial,
 } from 'three';
 import { parseColoredOff } from './offParser';
+import { UNPAINTED_PART_KEY } from '@/contexts/PartVisibilityContext';
+
+// Stable identity for a face bucket, shared with the parameter panel so a
+// color parameter's hex can be matched to the mesh it paints. OFF colors
+// arrive as 0-255 bytes scaled to 0-1, so rounding back recovers the exact
+// byte the user's `color()` call specified.
+function partKeyForColor(
+  color: [number, number, number, number] | null,
+): string {
+  if (!color) return UNPAINTED_PART_KEY;
+  const hex = color
+    .slice(0, 3)
+    .map((channel) =>
+      Math.round(channel * 255)
+        .toString(16)
+        .padStart(2, '0'),
+    )
+    .join('');
+  return `#${hex.toUpperCase()}`;
+}
 
 // OpenSCAD paints any face without an explicit color() call with its built-in
 // model yellow (#F9D72C ≈ 249,215,44). Manifold also emits a secondary
@@ -87,7 +107,11 @@ export function buildColoredGroupFromOff(
       opacity: faceColor ? faceColor[3] : 1,
     });
 
-    group.add(new Mesh(geom, mat));
+    const mesh = new Mesh(geom, mat);
+    // Lets the viewer toggle this bucket's visibility from the panel without
+    // re-deriving the color-to-mesh mapping.
+    mesh.userData.partKey = partKeyForColor(faceColor);
+    group.add(mesh);
   }
 
   if (group.children.length === 0) return null;
