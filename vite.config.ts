@@ -97,6 +97,34 @@ export default defineConfig({
     nitro({
       baseURL: normalizedAppBase,
       inlineDynamicImports: true,
+      // Keep firebase-admin out of the server bundle; let Nitro trace it into
+      // the deployment instead.
+      //
+      // Nitro bundles every dependency by default, and firebase-admin does not
+      // survive that. It ships a CommonJS build plus a thin ESM shim whose
+      // entries are all `import mod from '../../<name>/index.js'`. Node hands a
+      // default import of a CJS module the whole `module.exports`; the
+      // bundler's interop instead honours the `__esModule` marker TypeScript
+      // emits and synthesises no `default` at all. The shim then evaluates
+      // `undefined.SDK_VERSION` as soon as the module loads, which fails every
+      // request — including the prerender of '/', so the build itself dies with
+      // "Failed to fetch /: Internal Server Error".
+      //
+      // Externalising also sidesteps the next problem in line: the admin SDK
+      // reaches Firestore through google-gax/grpc, which loads .proto and .json
+      // descriptors from disk by path at runtime. The trailing '*' asks for a
+      // full-package trace so those non-JS files are copied too, instead of
+      // only the modules the import graph happens to reach.
+      traceDeps: ['firebase-admin*'],
+      // Required for the line above to fire at all. Nitro decides what to trace
+      // by re-resolving the bare specifier with exsolve under
+      // `exportConditions`, which defaults to
+      // ['production', 'wasm', 'unwasm', 'node'] — none of which appear in
+      // firebase-admin's export map, whose subpaths offer only 'types',
+      // 'require' and 'import'. Resolution therefore returns undefined, the
+      // externals plugin silently gives up, and the package gets bundled after
+      // all. Nitro merges this list with its defaults rather than replacing it.
+      exportConditions: ['import'],
       // Long-lived caching for content-hashed assets. Declared here rather than
       // in vercel.json because Nitro's generated .vercel/output/config.json is
       // authoritative for routing under the Build Output API — headers set in
