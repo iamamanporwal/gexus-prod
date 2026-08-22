@@ -3,7 +3,6 @@ import type { SupabaseClient } from './supabaseClient';
 import { GoogleGenAI, Modality } from '@google/genai';
 import { fal } from '@fal-ai/client';
 import OpenAI from 'openai';
-import { reformatSignedUrl } from './messageUtils';
 import { env, requiredEnv } from './env';
 
 const DEBUG_LOGS =
@@ -395,7 +394,7 @@ export const generateImageWithFalFlux = async (
 
     imageInputs = rawImageUrls
       .filter((image) => !image.error && image.signedUrl)
-      .map((image) => reformatSignedUrl(image.signedUrl!));
+      .map((image) => image.signedUrl!);
   }
 
   if (imageInputs.length > 0) {
@@ -446,7 +445,7 @@ export const generateImageWithFlux = async (
       throw new Error('No image URL from Flux');
     }
 
-    imageUrl = reformatSignedUrl(rawImageUrl.signedUrl);
+    imageUrl = rawImageUrl.signedUrl;
   }
 
   const input = {

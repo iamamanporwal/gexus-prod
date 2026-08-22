@@ -20,7 +20,6 @@ import {
   getServiceRoleSupabaseClient,
   type SupabaseClient,
 } from './supabaseClient';
-import { reformatSignedUrl } from './messageUtils';
 import { billing, BillingClientError } from './billingClient';
 import { logApiError, logError } from './serverLog';
 import { Buffer } from 'node:buffer';
@@ -653,7 +652,7 @@ async function submitMeshJob(
 
   debugLog('Environment variables:', {
     ENVIRONMENT: env('ENVIRONMENT'),
-    SUPABASE_URL: env('VITE_SUPABASE_URL') ? 'SET' : 'NOT SET',
+    FIREBASE_STORAGE_BUCKET: env('FIREBASE_STORAGE_BUCKET') ? 'SET' : 'NOT SET',
     WEBHOOK_BASE_URL: appBaseUrl ? 'SET' : 'NOT SET',
     appBaseUrl,
   });
@@ -803,7 +802,7 @@ async function submitMeshJob(
           );
         }
 
-        imageInputs = [reformatSignedUrl(imageSignedUrl.signedUrl)];
+        imageInputs = [imageSignedUrl.signedUrl];
       } else {
         // Standard single-image generation for fast mode
         const { data: imageData, error: imageError } = await supabaseClient
@@ -880,7 +879,7 @@ async function submitMeshJob(
           );
         }
 
-        imageInputs = [reformatSignedUrl(imageSignedUrl.signedUrl)];
+        imageInputs = [imageSignedUrl.signedUrl];
       }
     } else {
       // No text provided, use the collected images directly for mesh generation
@@ -905,7 +904,7 @@ async function submitMeshJob(
       // Filter out any errors and map to just get signedURL, swap out basename for supabase host
       imageInputs = imageSignedUrls
         .filter((image) => !image.error && image.signedUrl)
-        .map((image) => reformatSignedUrl(image.signedUrl!));
+        .map((image) => image.signedUrl!);
 
       if (imageInputs.length === 0) {
         throw new Error('No valid images found for mesh generation');
@@ -1047,7 +1046,7 @@ async function submitMeshJob(
         );
       }
 
-      const baseImageUrl = reformatSignedUrl(imageSignedUrl.signedUrl);
+      const baseImageUrl = imageSignedUrl.signedUrl;
 
       // Configure Meshy parameters
       // Topology: default to triangle (Meshy standard), but respect quad if requested
@@ -1500,7 +1499,7 @@ async function submitPreviewJob(
         );
       }
 
-      imageInputs = [reformatSignedUrl(imageSignedUrl.signedUrl)];
+      imageInputs = [imageSignedUrl.signedUrl];
     } else {
       // No text provided, use the collected images directly for mesh generation
       if (allImages.length === 0) {
@@ -1524,7 +1523,7 @@ async function submitPreviewJob(
       // Filter out any errors and map to just get signedURL, swap out basename for supabase host
       imageInputs = imageSignedUrls
         .filter((image) => !image.error && image.signedUrl)
-        .map((image) => reformatSignedUrl(image.signedUrl!));
+        .map((image) => image.signedUrl!);
 
       if (imageInputs.length === 0) {
         throw new Error('No valid images found for mesh generation');
