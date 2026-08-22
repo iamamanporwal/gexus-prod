@@ -19,6 +19,24 @@ import { defineConfig, type Plugin } from 'vite';
 // needs mounting under a prefix again.
 const appBase: string = '/';
 
+// ── Vercel project settings this config assumes ────────────────────────────
+//
+// Recorded here because they live in the Vercel dashboard and cannot be
+// expressed in the repo. There is deliberately no vercel.json: its schema
+// rejects unknown keys (so no comments), and under the Build Output API its
+// routing directives are superseded by the generated config.json anyway.
+//
+//   Framework Preset : Other          <- NOT Vite. Vite makes Vercel look for
+//                                        dist/ and ignore .vercel/output, which
+//                                        404s every path including /api/*.
+//   Build Command    : npm run build
+//   Output Directory : (leave empty)  <- setting it also bypasses .vercel/output
+//   Install Command  : npm ci
+//   Node.js Version  : 22.x           (or driven by .node-version)
+//
+// A correct build log says: "Nitro Preset: vercel" and
+// "Build Directory: .vercel/output".
+
 // Router basepath and the SPA mask want a real path, never the empty string
 // that stripping the trailing slash off '/' would produce.
 const normalizedAppBase = appBase === '/' ? '/' : appBase.replace(/\/$/, '');
