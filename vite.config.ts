@@ -6,8 +6,27 @@ import path from 'path';
 import react from '@vitejs/plugin-react';
 import { defineConfig, type Plugin } from 'vite';
 
-const appBase = '/cadam';
-const normalizedAppBase = appBase.replace(/\/$/, '');
+// Serve at the domain root.
+//
+// Upstream used '/cadam' because the app was mounted as a sub-path of
+// adam.new. On a dedicated domain that sub-path buys nothing and costs a lot:
+// '/' 404s unless a redirect is in place, and under Vercel's Build Output API
+// the generated .vercel/output/config.json supersedes vercel.json's routing —
+// so a redirect declared there never fires. Serving at the root removes the
+// whole class of problem instead of papering over it.
+// Typed as `string`, not inferred as the literal '/', so the sub-path branches
+// below stay type-checked and this remains a one-line change if the app ever
+// needs mounting under a prefix again.
+const appBase: string = '/';
+
+// Router basepath and the SPA mask want a real path, never the empty string
+// that stripping the trailing slash off '/' would produce.
+const normalizedAppBase = appBase === '/' ? '/' : appBase.replace(/\/$/, '');
+
+// Asset and API URLs are derived from BASE_URL at runtime, which is '/' here.
+// Kept as a separate constant because the dev WASM middleware needs a prefix
+// that does not double up the slash.
+const assetPathPrefix = normalizedAppBase === '/' ? '' : normalizedAppBase;
 
 // Sourcemap generation and the Sentry plugin are driven by the same switch:
 // there is no reason to emit .map files for a build that cannot upload them.
@@ -28,7 +47,7 @@ function serveOpenScadWasmInDev(): Plugin {
         const url = new URL(req.url, 'http://localhost');
         if (
           url.pathname !==
-          `${normalizedAppBase}/src/vendor/openscad-wasm/openscad.wasm`
+          `${assetPathPrefix}/src/vendor/openscad-wasm/openscad.wasm`
         ) {
           return next();
         }
@@ -60,6 +79,16 @@ export default defineConfig({
     nitro({
       baseURL: normalizedAppBase,
       inlineDynamicImports: true,
+      // Long-lived caching for content-hashed assets. Declared here rather than
+      // in vercel.json because Nitro's generated .vercel/output/config.json is
+      // authoritative for routing under the Build Output API — headers set in
+      // vercel.json never apply. Matters most for the 9.6 MB openscad.wasm,
+      // which every visitor would otherwise re-download on each visit.
+      routeRules: {
+        '/assets/**': {
+          headers: { 'cache-control': 'public, max-age=31536000, immutable' },
+        },
+      },
       // Vercel-only; ignored by every other preset, so this is safe to leave
       // set when building for a container or locally.
       //

@@ -20,20 +20,18 @@ because those are the two that lose data silently.
 | 1 MB overflow to Cloud Storage                 | [tableHooks.ts](../shared/firestore/tableHooks.ts)      | 6 tests: small rows untouched, >1 MB offloaded, transparent read round-trip, blob cleanup on delete _and_ through cascade, lost blob errors rather than corrupts, pointer records the store's chosen path |
 | Server adapter + storage (admin SDK)           | [firestoreAdmin.ts](../src/server/firestoreAdmin.ts)    | Typecheck                                                                                                                                                                                                 |
 | Client adapter + storage + anonymous auth      | [firebaseClient.ts](../src/lib/firebaseClient.ts)       | Typecheck                                                                                                                                                                                                 |
-| Firestore Security Rules                       | [firestore.rules](../firestore.rules)                   | Not yet deployed                                                                                                                                                                                          |
-| Storage Security Rules                         | [storage.rules](../storage.rules)                       | Not yet deployed                                                                                                                                                                                          |
+| Firestore Security Rules                       | [firestore.rules](../firestore.rules)                   | Deployed — live ruleset confirmed via the Rules API                                                                                                                                                       |
+| Storage Security Rules                         | [storage.rules](../storage.rules)                       | Deployed; 17/17 as a real anonymous client, after one fix — see below                                                                                                                                     |
 | Realtime → `onSnapshot`                        | [firebaseMeshWatch.ts](../src/lib/firebaseMeshWatch.ts) | Typecheck                                                                                                                                                                                                 |
 
 The existing Supabase app **still runs untouched** — everything so far is new
 files. Deliberate: it keeps working until the swap can be done and verified in
 one go.
 
-**Remaining:**
-
-| #   | Piece                                                                                   | Blocked on                       |
-| --- | --------------------------------------------------------------------------------------- | -------------------------------- |
-| 10  | The swap — repoint 99 call sites, 26 identity sites, `App.tsx` boot gate, `requireUser` | Nothing technical, but see below |
-| 11  | Deploy rules, end-to-end verification                                                   | **Firestore + service account**  |
+**Remaining: nothing.** The swap is done (see _The cutover_), both console steps
+in §6 have been run — indexes and rules deployed, Cloud Storage provisioned — and
+the one defect this turned up (`storage.rules` denied client deletes) is fixed and
+redeployed. Every probe is green.
 
 ### Four design decisions made while building
 
@@ -71,8 +69,12 @@ Plus: 0 typecheck errors, 0 lint errors, 29/29 unit tests, all shim checks green
 against real Firestore, and a Vercel-preset production build at exit 0 with
 `maxDuration: max`, streaming on, and zero sourcemaps shipped.
 
-**Only Cloud Storage remains** (bucket still 404) — that blocks images, meshes,
-previews and the 1 MB overflow. Everything else works.
+**Cloud Storage is now provisioned and verified.** The bucket
+(`gexus-5f667.firebasestorage.app`, US-EAST1) answers, and every operation the
+shim performs was exercised against it: upload, byte-identical download, a signed
+URL that actually serves over HTTPS, prefix listing, and a 1.05 MB overflow spill
+put/get/deleted. Probing it also turned up a real defect in the rules — see
+_Storage, verified_ below.
 
 ### Three silent breakages integration testing caught
 
@@ -110,8 +112,8 @@ Verified against the real project:
 | Authenticated API call                                         | ✅ 200                                                   |
 | insert / select / update / filters / `single` vs `maybeSingle` | ✅ against real Firestore                                |
 | **Cascade deletes**                                            | ✅ conversation → messages, meshes, previews all removed |
-| Storage                                                        | ⛔ bucket not provisioned                                |
-| Filter + order queries                                         | ⛔ **needs composite indexes**                           |
+| Storage                                                        | ✅ upload / download / signed URL / list / 1 MB overflow |
+| Filter + order queries                                         | ✅ 9 composite indexes, all READY                        |
 
 **The index problem is the one that would have bitten in production.** Firestore
 _refuses_ a query that filters on one field and orders by another unless a
@@ -124,9 +126,50 @@ in [firestore.indexes.json](../firestore.indexes.json) with the query each one
 serves. Affected: conversations by user, messages by conversation, VisualCard's
 latest-assistant lookup, useGlbPreview, three in mesh.ts, and the mesh watcher.
 
-I could not deploy them: the Admin SDK service account lacks
-`serviceusage.serviceUsageConsumer`, so `firebase deploy` 403s. **You need to run
-it** (see §6).
+They are deployed. The Admin SDK service account lacks
+`serviceusage.serviceUsageConsumer`, so `firebase deploy` 403s for it and you ran
+it yourself; the Firestore Admin API now lists all nine, every one `READY`.
+
+### Storage, verified — and one rule that was wrong
+
+Admin credentials bypass Security Rules, so proving the bucket works proves
+nothing about the rules. Two probes, therefore. As the server (admin SDK): 7/7 —
+bucket reachable, upload, byte-identical download, a signed URL returning HTTP
+200 (this is what fal receives), prefix listing, and a 1.05 MB overflow blob
+put/get/deleted. As a real anonymous
+client, against the deployed rules: 16/17 — then 17/17 once the failure below was
+fixed and redeployed.
+
+The one failure was the useful one. Writing to `images/<uid>/…` was allowed and
+another uid's path was refused, exactly as intended — but **deleting its own
+object was refused too**, `storage/unauthorized`.
+
+The cause: `allow write` covers create, update _and_ delete, and on a delete
+`request.resource` is null. So `reasonableSize()` — `request.resource.size < 20MB`
+— evaluated against null and failed the rule. Every client-side delete was
+denied: conversation and mesh deletion
+([TextAreaChat.tsx](../src/components/TextAreaChat.tsx),
+[HistoryView.tsx](../src/views/HistoryView.tsx)) and overflow-blob cleanup on
+cascade, all of which run with the user's own credentials rather than the
+server's. Nothing would have failed at write time; storage would simply have
+accumulated objects no row referenced, and deletes would have surfaced as
+permission errors at the worst moment.
+
+[storage.rules](../storage.rules) now spells out `create, update` and `delete`
+separately in every block, so the size ceiling constrains the bytes being written
+and nothing gates their removal. Redeployed with:
+
+```powershell
+npx firebase-tools deploy --only storage --project gexus-5f667
+```
+
+(Note the CLI needs Node ≥20 — this repo pins 22.12.0 in `.node-version`, and the
+system Node 18 on PATH is refused outright.) The client probe now reads 17/17,
+including deleting its own objects across all four prefixes. Worth noting how this surfaced: the
+Rules `test` API 403s for the Admin SDK service account — the same permission gap
+that blocks `deploy` — so the rules could only be checked by issuing real
+requests against them as a real signed-in client. A rules file that reads as
+obviously correct is not evidence.
 
 ### Known gap, stated plainly
 
@@ -409,9 +452,10 @@ takes longer than the phases that produce visible code.
 
 ## 6. What I need from you — current
 
-Three things, in this order. All are console/CLI steps only you can authorise.
+Steps 1 and 2 are **done** — kept here for the record, since the deploy commands
+are the ones to reuse. Only step 3 stands.
 
-**1. Deploy rules and indexes** (blocks every filter+order query):
+**1. Deploy rules and indexes** — done; nine indexes READY, both rulesets live.
 
 ```powershell
 npx firebase-tools login
@@ -422,9 +466,9 @@ npx firebase-tools deploy --only firestore:indexes,firestore:rules --project gex
 are all committed and ready. Index builds take a few minutes; queries keep
 failing until each index reports READY.
 
-**2. Provision Cloud Storage** (blocks images, meshes, previews, and the 1 MB
-overflow): Console → Storage → Get started. **Expect a Blaze plan prompt** —
-newer projects require pay-as-you-go for the default bucket. Then:
+**2. Provision Cloud Storage** — done (US-EAST1, Blaze). The console step was
+Storage → Get started, which prompts for the pay-as-you-go upgrade newer projects
+require for a default bucket. Then:
 
 ```powershell
 npx firebase-tools deploy --only storage --project gexus-5f667
@@ -433,7 +477,12 @@ npx firebase-tools deploy --only storage --project gexus-5f667
 **3. Confirm the Firestore region** matches your Vercel region, if you have not
 already — it is fixed at creation and every page load pays the round trip.
 
-Then tell me and I will re-run the integration probe end to end.
+The integration probe has been re-run: storage green on both sides (7/7 as the
+server, 17/17 as a client), all nine indexes READY, both rulesets live and
+matching the repo byte-for-byte. What has _not_ been
+re-run since the fix is a full generation through the UI that writes an image and
+a mesh and then deletes the conversation — worth doing once after the redeploy
+above, because deletion is the path that was broken.
 
 ## 7. Original ask
 
