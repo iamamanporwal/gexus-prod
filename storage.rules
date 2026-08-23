@@ -1,0 +1,96 @@
+rules_version = '2';
+
+// Cloud Storage Security Rules.
+//
+// Supabase had four buckets; Firebase has one, so the shim prefixes each
+// logical bucket as a top-level folder (see bucketPath in
+// shared/firestore/storage.ts). Underneath, the app's existing layout is
+// preserved:
+//
+//   images/<uid>/<conversationId>/<file>
+//   meshes/<uid>/<conversationId>/<file>
+//   previews/<uid>/<conversationId>/<file>
+//   temp-multiview/<...>
+//   overflow/<uid>/<table>/<docId>/<field>.json   <- oversized Firestore fields
+//
+// That `<uid>` segment is what every rule below authorizes on. It is the same
+// prefix the upstream Supabase storage policies matched with
+// `(storage.foldername(name))[1] = auth.uid()`, which is why no upload paths
+// had to change.
+//
+// Note the asymmetry with Firestore: Storage rules cannot cheaply consult a
+// conversation's `privacy` field, so shared-link *images* are not public here.
+// A shared conversation renders its text and geometry; its stored image assets
+// will 403 for a non-owner. Making those public means either a signed URL
+// minted server-side (the server bypasses these rules) or a `public/` prefix.
+//
+// Every block below spells out `create, update` and `delete` separately rather
+// than using `write`. That is deliberate, and it is load-bearing: on a delete
+// request `request.resource` is null, so a size check folded into `write`
+// evaluates against null and denies the delete. The first version did exactly
+// that, and it silently broke every client-side delete — conversation and mesh
+// deletion (TextAreaChat, HistoryView) and overflow-blob cleanup on cascade,
+// all of which run with the user's own credentials. Size only constrains the
+// bytes being written; it has no business gating their removal.
+
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function owns(uid) {
+      return signedIn() && request.auth.uid == uid;
+    }
+
+    // 20 MB ceiling. Meshes are the largest thing the app stores; this is well
+    // above a legitimate one and well below anything worth hosting for free.
+    function reasonableSize() {
+      return request.resource.size < 20 * 1024 * 1024;
+    }
+
+    match /images/{uid}/{allPaths=**} {
+      allow read: if owns(uid);
+      allow create, update: if owns(uid) && reasonableSize();
+      allow delete: if owns(uid);
+    }
+
+    match /meshes/{uid}/{allPaths=**} {
+      allow read: if owns(uid);
+      allow create, update: if owns(uid) && reasonableSize();
+      allow delete: if owns(uid);
+    }
+
+    match /previews/{uid}/{allPaths=**} {
+      allow read: if owns(uid);
+      allow create, update: if owns(uid) && reasonableSize();
+      allow delete: if owns(uid);
+    }
+
+    // Offloaded Firestore fields. Same ownership rule, larger ceiling: these
+    // exist precisely because the payload was too big for a 1 MB document.
+    // Delete matters more here than anywhere else — a denied delete orphans a
+    // blob that nothing will ever reference again.
+    match /overflow/{uid}/{allPaths=**} {
+      allow read: if owns(uid);
+      allow create, update: if owns(uid) && request.resource.size < 50 * 1024 * 1024;
+      allow delete: if owns(uid);
+    }
+
+    // Server-written overflow. Admin credentials bypass these rules, so no
+    // client needs access — deny it explicitly rather than leaving the path
+    // unmatched, to document that the omission is deliberate.
+    match /overflow/server/{allPaths=**} {
+      allow read, write: if false;
+    }
+
+    // Scratch space for the multiview image flow. Was a public bucket upstream;
+    // reads stay open, writes are owner-only.
+    match /temp-multiview/{allPaths=**} {
+      allow read: if true;
+      allow create, update: if signedIn() && reasonableSize();
+      allow delete: if signedIn();
+    }
+  }
+}

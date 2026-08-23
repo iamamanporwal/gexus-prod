@@ -1,0 +1,27 @@
+# For detailed configuration reference documentation, visit:
+# https://supabase.com/docs/guides/local-development/cli/config
+# A string used to distinguish different Supabase projects on the same host. Defaults to the
+# working directory name when running `supabase init`.
+project_id = "cadam"
+
+# Authentication has been removed from this fork (see
+# supabase/migrations/20260801000000_remove_auth.sql). The [auth.email] and
+# [auth.external.google] blocks are gone with it — the Google OAuth block also
+# warned on every CLI invocation about unset GOOGLE_CLIENT_ID / GOOGLE_SECRET.
+
+[storage.buckets.meshes]
+public = false
+
+[storage.buckets.images]
+public = false
+
+[storage.buckets.previews]
+public = false
+
+[db.migrations]
+schema_paths = [
+  "./schemas/types.sql",
+  "./schemas/conversations.sql",
+  "./schemas/prompts.sql",
+  "./schemas/*.sql",
+]

@@ -1,0 +1,147 @@
+rules_version = '2';
+
+// Firestore Security Rules — the replacement for the Postgres RLS policies that
+// supabase/migrations/20260801000000_remove_auth.sql dropped.
+//
+// Model: every guest is a real anonymous-auth user with a uid and owns only the
+// documents carrying that uid. Conversations are additionally world-readable
+// when `privacy == 'public'`, which is what keeps /share/$id links working.
+//
+// Two deliberate style choices, because this is the file where being clever
+// costs the most:
+//
+//  1. One explicit `match` per collection, never a `/{collection}/{doc}`
+//     wildcard. Firestore ORs every matching rule together, so a permissive
+//     wildcard can silently widen a narrow rule elsewhere.
+//  2. Every mixed `&&`/`||` condition is fully parenthesised. `&&` binds
+//     tighter, and relying on that is how a public-read clause accidentally
+//     becomes an unauthenticated-read-everything clause.
+//
+// Anything not matched here is denied, so a collection added later is locked
+// until someone writes a rule for it.
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    // The document as it exists now.
+    function ownsExisting() {
+      return signedIn()
+             && 'user_id' in resource.data
+             && resource.data.user_id == request.auth.uid;
+    }
+
+    // The document as it is being written. Checked so a client cannot create a
+    // row under someone else's uid, nor reassign an existing row to itself.
+    function ownsIncoming() {
+      return signedIn()
+             && 'user_id' in request.resource.data
+             && request.resource.data.user_id == request.auth.uid;
+    }
+
+    function conversation(id) {
+      return get(/databases/$(database)/documents/conversations/$(id)).data;
+    }
+
+    function conversationExists(id) {
+      return exists(/databases/$(database)/documents/conversations/$(id));
+    }
+
+    // Ownership inherited through conversation_id, for collections that have it.
+    // Guarded on existence: get() on a missing document errors, which denies the
+    // whole request rather than just this clause.
+    function ownsParent(id) {
+      return signedIn()
+             && conversationExists(id)
+             && conversation(id).user_id == request.auth.uid;
+    }
+
+    function parentIsPublic(id) {
+      return conversationExists(id) && conversation(id).privacy == 'public';
+    }
+
+    match /conversations/{conversationId} {
+      allow read: if (ownsExisting()) || (resource.data.privacy == 'public');
+      allow create: if ownsIncoming();
+      // Own it before AND after, so an update cannot transfer ownership away.
+      allow update: if (ownsExisting()) && (ownsIncoming());
+      allow delete: if ownsExisting();
+    }
+
+    // Messages carry no user_id — ownership comes through conversation_id, at
+    // the cost of one document read per evaluation. Public conversations must be
+    // readable here too, or a shared link renders an empty thread.
+    match /messages/{messageId} {
+      allow read: if (ownsParent(resource.data.conversation_id))
+                     || (parentIsPublic(resource.data.conversation_id));
+      allow create: if ownsParent(request.resource.data.conversation_id);
+      allow update: if (ownsParent(resource.data.conversation_id))
+                       && (ownsParent(request.resource.data.conversation_id));
+      allow delete: if ownsParent(resource.data.conversation_id);
+    }
+
+    // images / meshes / previews carry user_id directly. Reads also allow anyone
+    // when the parent conversation is public, so a shared link shows its models
+    // and images instead of broken placeholders.
+    match /images/{imageId} {
+      // ownsParent makes conversation-scoped LIST queries provable for the
+      // owner: a query pinning conversation_id can be authorized from its
+      // constraints alone, which ownsExisting (user_id) cannot when the query
+      // doesn't filter on user_id. Single-document gets pass through
+      // ownsExisting exactly as before.
+      allow read: if (ownsExisting())
+                     || (ownsParent(resource.data.conversation_id))
+                     || (parentIsPublic(resource.data.conversation_id));
+      allow create: if ownsIncoming();
+      allow update: if (ownsExisting()) && (ownsIncoming());
+      allow delete: if ownsExisting();
+    }
+
+    match /meshes/{meshId} {
+      // ownsParent makes conversation-scoped LIST queries provable for the
+      // owner: a query pinning conversation_id can be authorized from its
+      // constraints alone, which ownsExisting (user_id) cannot when the query
+      // doesn't filter on user_id. Single-document gets pass through
+      // ownsExisting exactly as before.
+      allow read: if (ownsExisting())
+                     || (ownsParent(resource.data.conversation_id))
+                     || (parentIsPublic(resource.data.conversation_id));
+      allow create: if ownsIncoming();
+      allow update: if (ownsExisting()) && (ownsIncoming());
+      allow delete: if ownsExisting();
+    }
+
+    match /previews/{previewId} {
+      // ownsParent makes conversation-scoped LIST queries provable for the
+      // owner: a query pinning conversation_id can be authorized from its
+      // constraints alone, which ownsExisting (user_id) cannot when the query
+      // doesn't filter on user_id. Single-document gets pass through
+      // ownsExisting exactly as before.
+      allow read: if (ownsExisting())
+                     || (ownsParent(resource.data.conversation_id))
+                     || (parentIsPublic(resource.data.conversation_id));
+      allow create: if ownsIncoming();
+      allow update: if (ownsExisting()) && (ownsIncoming());
+      allow delete: if ownsExisting();
+    }
+
+    // Private even on a shared conversation: nothing about a guest needs to be
+    // visible to anyone else.
+    match /profiles/{profileId} {
+      allow read: if ownsExisting();
+      allow create: if ownsIncoming();
+      allow update: if (ownsExisting()) && (ownsIncoming());
+      allow delete: if ownsExisting();
+    }
+
+    match /prompts/{promptId} {
+      allow read: if ownsExisting();
+      allow create: if ownsIncoming();
+      allow update: if (ownsExisting()) && (ownsIncoming());
+      allow delete: if ownsExisting();
+    }
+  }
+}

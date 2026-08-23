@@ -1,0 +1,6 @@
+-- Nothing to seed.
+--
+-- This build has no authentication, so there is no auth.users row to create.
+-- The single local profile row (matching LOCAL_USER_ID in shared/localUser.ts)
+-- is inserted by supabase/migrations/20260801000000_remove_auth.sql so that it
+-- also applies to `supabase db push` against a remote project.
