@@ -4,17 +4,25 @@
 // Nitro traces externalized server dependencies (vite.config.ts traceDeps)
 // into the build output with nf3, which lays them out as a `.nf3/` store of
 // versioned package dirs plus symlinks from the expected node_modules paths.
-// Two properties of that layout do not survive deployment:
-//
-//   - On Windows the links are junctions, which always record absolute paths.
-//   - On Vercel, the links resolve against /vercel/path0/... at build time,
-//     but the function executes from /var/task — every link dangles, the
-//     entry's static `import "firebase-admin/app"` throws at cold start, and
-//     each request dies as FUNCTION_INVOCATION_FAILED before reaching the app.
+// That layout does not survive deployment: on Vercel the links resolve
+// against /vercel/path0/... at build time, but the function executes from
+// /var/task — every link dangles, the entry's static
+// `import "firebase-admin/app"` throws at cold start, and each request dies
+// as FUNCTION_INVOCATION_FAILED before reaching the app.
 //
 // Fix: after the build, replace each symlink with a real copy of its target
-// and drop the store, leaving a self-contained node_modules that resolves the
-// same way on any host. Idempotent — a tree with no symlinks is a no-op.
+// and drop the store, leaving a self-contained node_modules that resolves
+// the same way on any host. Idempotent — a tree with no symlinks is a no-op.
+//
+// The copy is hand-rolled rather than fs.cpSync({ dereference: true })
+// because cpSync only dereferences the top-level path: symlinks nested
+// inside the copied tree are recreated as symlinks (nodejs/node#41586).
+// nf3's Linux layout nests exactly such links (store packages carry their
+// own node_modules of version-conflicted deps), which is how the first
+// deploy of this script failed its own verification on Vercel while
+// passing on Windows, where nf3's junction layout keeps every link
+// top-level. copyReal stats through links at every depth, so the result
+// contains none regardless of layout.
 
 import fs from 'node:fs';
 import path from 'node:path';
@@ -39,6 +47,19 @@ function collectSymlinks(dir, found) {
   return found;
 }
 
+/** Copy src to dst following every symlink, at any depth, to real content. */
+function copyReal(src, dst) {
+  const stat = fs.statSync(src); // statSync resolves symlinks
+  if (stat.isDirectory()) {
+    fs.mkdirSync(dst, { recursive: true });
+    for (const name of fs.readdirSync(src)) {
+      copyReal(path.join(src, name), path.join(dst, name));
+    }
+  } else {
+    fs.copyFileSync(src, dst); // preserves the file mode (.bin executables)
+  }
+}
+
 function removeLink(link) {
   try {
     fs.unlinkSync(link);
@@ -58,11 +79,9 @@ for (const root of OUTPUT_ROOTS) {
 
   const links = collectSymlinks(nodeModules, []);
   for (const link of links) {
-    // realpath resolves junctions, relative links, and chains through the
-    // store; dereference:true also flattens any links inside the target.
     const target = fs.realpathSync(link);
     removeLink(link);
-    fs.cpSync(target, link, { recursive: true, dereference: true });
+    copyReal(target, link);
   }
 
   const store = path.join(nodeModules, STORE_DIR);

@@ -165,6 +165,14 @@ export default defineConfig({
       project: process.env.SENTRY_PROJECT,
       authToken: process.env.SENTRY_AUTH_TOKEN,
       disable: !uploadsSourcemapsToSentry,
+      // Without this the plugin throws on any upload failure — a wrong org
+      // slug, an expired token, a Sentry outage — and takes the whole
+      // deployment down with it. Sourcemap upload is observability, not a
+      // build input; failing it must never fail the build. The warning still
+      // lands in the build log for whoever set the credentials.
+      errorHandler(error) {
+        console.warn('[sentry] sourcemap upload failed (non-fatal):', error);
+      },
       sourcemaps: {
         // Upload, then delete from the output: readable stack traces in Sentry
         // without publishing the source on the CDN.
