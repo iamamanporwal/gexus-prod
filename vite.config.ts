@@ -192,8 +192,21 @@ export default defineConfig({
         // one-line repair in fixNitroVercelNodeEntry() below.
         entryFormat: 'node',
         functions: {
-          maxDuration: 'max',
-          memory: 2048,
+          // Provisioning values a green deploy does NOT validate — they only
+          // bite at invocation, as FUNCTION_INVOCATION_FAILED with nothing in
+          // the build log. With the artifact itself proven healthy in an
+          // isolated container, these are pinned to the most conservative GA
+          // values while bringing the function up:
+          //
+          //   - runtime: nitro guesses from the BUILD machine's Node (24 on
+          //     Vercel today), which is unrelated to what the account's
+          //     function platform accepts. nodejs22.x matches .node-version
+          //     and the engines field.
+          //   - maxDuration 'max' and memory 2048 are dropped to platform
+          //     defaults. The chat loop's wall clock is governed by
+          //     CHAT_TIME_BUDGET_SECONDS (see aiChat.ts); raise these again
+          //     one at a time once the function is serving.
+          runtime: 'nodejs22.x',
         },
       },
     }),
