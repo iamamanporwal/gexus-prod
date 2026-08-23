@@ -13,7 +13,7 @@ import {
 } from '@/utils/shareUtils';
 import { MeshGifPreview } from '../viewer/MeshGifPreview';
 import { OpenSCADGifPreview } from '../viewer/OpenSCADGifPreview';
-import { cn } from '@/lib/utils';
+import { cn, publicPath } from '@/lib/utils';
 import type React from 'react';
 
 type ShareContentProps = {
@@ -40,7 +40,7 @@ export function ShareContent({
     null,
   );
 
-  const shareLink = `${window.location.origin}${import.meta.env.BASE_URL}/share/${conversationId}`;
+  const shareLink = `${window.location.origin}${publicPath(`share/${conversationId}`)}`;
   const isPublic = privacy === 'public';
 
   const copyToClipboard = () => {

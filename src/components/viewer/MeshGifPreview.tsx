@@ -1,4 +1,5 @@
 import { useMeshData } from '@/hooks/useMeshData';
+import { publicPath } from '@/lib/utils';
 import { Loader2 } from 'lucide-react';
 import {
   useCallback,
@@ -49,7 +50,7 @@ export function MeshGifPreview({
   const [canvas, setCanvas] = useState<HTMLCanvasElement | null>(null);
   const logoImage = useMemo(() => {
     const img = new Image();
-    img.src = `${import.meta.env.BASE_URL}/adam-logo-full.svg`; // served from public folder root
+    img.src = publicPath('adam-logo-full.svg'); // served from public folder root
     return img;
   }, []);
   const isGeneratingRef = useRef(false);
@@ -690,7 +691,7 @@ export function MeshGifPreview({
           ref={canvasRefCallback}
         />
         <img
-          src={`${import.meta.env.BASE_URL}/adam-logo-full.svg`}
+          src={publicPath('adam-logo-full.svg')}
           alt="ADAM logo"
           className="pointer-events-none absolute bottom-3 right-3 w-[15%] select-none"
         />

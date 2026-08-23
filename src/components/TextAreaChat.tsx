@@ -21,6 +21,7 @@ import {
   cn,
   CREATIVE_MODELS,
   parametricModelSupportsVision,
+  publicPath,
 } from '@/lib/utils';
 import { useAvailableParametricModels } from '@/hooks/useAvailableModels';
 import { CreativeModel, MeshFileType, Model } from '@shared/types';
@@ -1530,7 +1531,7 @@ function TextAreaChat({
           <Avatar className="mt-1 h-8 w-8">
             <div className="h-full w-full p-1.5">
               <img
-                src={`${import.meta.env.BASE_URL}/Adam-Logo.png`}
+                src={publicPath('Adam-Logo.png')}
                 alt="Adam Logo"
                 className="h-full w-full object-contain"
               />

@@ -10,7 +10,7 @@ import * as THREE from 'three';
 import { Suspense, useMemo, useState } from 'react';
 import { OrthographicPerspectiveToggle } from '@/components/viewer/OrthographicPerspectiveToggle';
 import { ViewGizmo } from '@/components/viewer/ViewGizmo';
-import { cn } from '@/lib/utils';
+import { cn, publicPath } from '@/lib/utils';
 
 interface ThreeSceneProps {
   geometry: THREE.BufferGeometry | null;
@@ -73,7 +73,7 @@ export function ThreeScene({
             />
           )}
           <Stage environment={null} intensity={0.6} position={[0, 0, 0]}>
-            <Environment files={`${import.meta.env.BASE_URL}/city.hdr`} />
+            <Environment files={publicPath('city.hdr')} />
             <ambientLight intensity={0.8} />
             <directionalLight position={[5, 5, 5]} intensity={1.2} castShadow />
             <directionalLight position={[-5, 5, 5]} intensity={0.2} />

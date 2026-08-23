@@ -8,6 +8,24 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 /**
+ * URL for a file in public/, correct under any Vite `base`.
+ *
+ * Never concatenate `import.meta.env.BASE_URL` with a slash-prefixed path:
+ * with the app served at the domain root BASE_URL is exactly '/', and
+ * `${BASE_URL}/city.hdr` produces '//city.hdr' — which the browser reads as
+ * a PROTOCOL-RELATIVE URL, i.e. a request to the host named "city.hdr".
+ * That single character took down the 3D viewer in production ("Could not
+ * load //city.hdr: Failed to fetch") the moment a generation finished. This
+ * helper normalizes both halves so the join is always exactly one slash.
+ */
+export function publicPath(path: string): string {
+  const base = import.meta.env.BASE_URL.endsWith('/')
+    ? import.meta.env.BASE_URL
+    : `${import.meta.env.BASE_URL}/`;
+  return `${base}${path.startsWith('/') ? path.slice(1) : path}`;
+}
+
+/**
  * Validates and sanitizes a redirect URL to prevent open redirect attacks
  * Only allows relative paths or same-origin URLs
  * @param redirectUrl - The URL to validate

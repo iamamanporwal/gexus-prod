@@ -43,7 +43,13 @@ class OpenSCADWrapper {
     try {
       if (!defaultFont) {
         const fontResponse = await fetch(
-          `${import.meta.env.BASE_URL}/Geist-Regular.ttf`,
+          // Join with exactly one slash: BASE_URL is '/' at the domain root,
+          // and a naive `${BASE_URL}/x` yields protocol-relative '//x'. Local
+          // copy of lib/utils' publicPath — the worker bundle should not pull
+          // in the UI utility module for one string join.
+          import.meta.env.BASE_URL.endsWith('/')
+            ? `${import.meta.env.BASE_URL}Geist-Regular.ttf`
+            : `${import.meta.env.BASE_URL}/Geist-Regular.ttf`,
         );
         defaultFont = await fontResponse.arrayBuffer();
       }
