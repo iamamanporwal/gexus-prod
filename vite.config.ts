@@ -50,6 +50,34 @@ const assetPathPrefix = normalizedAppBase === '/' ? '' : normalizedAppBase;
 // there is no reason to emit .map files for a build that cannot upload them.
 const uploadsSourcemapsToSentry = Boolean(process.env.SENTRY_AUTH_TOKEN);
 
+// Nitro's stock Vercel node entry (presets/vercel/runtime/vercel.node.mjs in
+// this beta) redefines req.socket.remoteAddress on EVERY request without
+// `configurable`, so the second request arriving on a kept-alive socket dies
+// with "TypeError: Cannot redefine property: remoteAddress" and takes the
+// whole function process with it. Reproduced against the built artifact over
+// plain node:http with an agent reusing one socket. This transform makes the
+// property configurable so per-request redefinition is legal. Guarded: if a
+// future nitro version changes the entry so the pattern no longer matches,
+// the build fails here instead of shipping an unpatched entry.
+function fixNitroVercelNodeEntry(): Plugin {
+  const BROKEN = 'Object.defineProperty(req.socket, "remoteAddress", { get() {';
+  const FIXED =
+    'Object.defineProperty(req.socket, "remoteAddress", { configurable: true, get() {';
+  return {
+    name: 'fix-nitro-vercel-node-entry',
+    transform(code, id) {
+      if (!id.includes('vercel.node')) {
+        return null;
+      }
+      if (code.includes(BROKEN)) return code.replace(BROKEN, FIXED);
+      if (code.includes('configurable: true')) return null; // fixed upstream
+      throw new Error(
+        'nitro vercel.node entry changed; revisit fixNitroVercelNodeEntry()',
+      );
+    },
+  };
+}
+
 function serveOpenScadWasmInDev(): Plugin {
   return {
     name: 'serve-openscad-wasm-in-dev',
@@ -84,6 +112,7 @@ function serveOpenScadWasmInDev(): Plugin {
 export default defineConfig({
   base: appBase,
   plugins: [
+    fixNitroVercelNodeEntry(),
     serveOpenScadWasmInDev(),
     tanstackStart({
       router: {
@@ -149,6 +178,19 @@ export default defineConfig({
       // Routing puts every path on one catch-all function, so this base config
       // is the only knob; per-route `functionRules` would have nothing to match.
       vercel: {
+        // The classic (req, res) handler entry instead of the default
+        // `export default { fetch }` web object. Elimination, not preference:
+        // this exact function artifact imports clean and serves 200s in an
+        // isolated node:24 container, and the build/prerender pass on Vercel
+        // itself — yet every deployed invocation died in the launcher, the
+        // one layer between the two that cannot be reproduced locally. The
+        // (req, res) handler is the invocation contract @vercel/node has
+        // supported since the beginning; the object-with-fetch shape is the
+        // newest and the only unproven variable left. Streaming is unaffected
+        // — srvx's toNodeHandler pipes web ReadableStream bodies through, so
+        // the SSE chat responses still stream. The entry itself needs the
+        // one-line repair in fixNitroVercelNodeEntry() below.
+        entryFormat: 'node',
         functions: {
           maxDuration: 'max',
           memory: 2048,
