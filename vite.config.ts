@@ -126,34 +126,25 @@ export default defineConfig({
     nitro({
       baseURL: normalizedAppBase,
       inlineDynamicImports: true,
-      // Keep firebase-admin out of the server bundle; let Nitro trace it into
-      // the deployment instead.
+      // firebase-admin is BUNDLED, entered through its CJS files via the
+      // resolve.alias entries below. The obvious alternatives are all dead
+      // ends, each one found by shipping it:
       //
-      // Nitro bundles every dependency by default, and firebase-admin does not
-      // survive that. It ships a CommonJS build plus a thin ESM shim whose
-      // entries are all `import mod from '../../<name>/index.js'`. Node hands a
-      // default import of a CJS module the whole `module.exports`; the
-      // bundler's interop instead honours the `__esModule` marker TypeScript
-      // emits and synthesises no `default` at all. The shim then evaluates
-      // `undefined.SDK_VERSION` as soon as the module loads, which fails every
-      // request — including the prerender of '/', so the build itself dies with
-      // "Failed to fetch /: Internal Server Error".
+      //   - Bundling its normal entries dies at import time: the package's
+      //     ESM shims read `mod.SDK_VERSION` off a default import of a CJS
+      //     file, which bundler interop resolves to undefined
+      //     ("Cannot read properties of undefined (reading 'SDK_VERSION')").
+      //   - Externalizing + tracing (nitro traceDeps) dies on Vercel's
+      //     runtime: its /opt/rust/nodejs.js loader hooks Module._load
+      //     without require(esm) support, so jwks-rsa's require('jose') —
+      //     jose v6 is ESM-only — throws ERR_REQUIRE_ESM at cold start and
+      //     every request is FUNCTION_INVOCATION_FAILED. Plain Node 22/24
+      //     handles the same tree fine, which is why the identical artifact
+      //     served 200s in an isolated container while production crashed.
       //
-      // Externalising also sidesteps the next problem in line: the admin SDK
-      // reaches Firestore through google-gax/grpc, which loads .proto and .json
-      // descriptors from disk by path at runtime. The trailing '*' asks for a
-      // full-package trace so those non-JS files are copied too, instead of
-      // only the modules the import graph happens to reach.
-      traceDeps: ['firebase-admin*'],
-      // Required for the line above to fire at all. Nitro decides what to trace
-      // by re-resolving the bare specifier with exsolve under
-      // `exportConditions`, which defaults to
-      // ['production', 'wasm', 'unwasm', 'node'] — none of which appear in
-      // firebase-admin's export map, whose subpaths offer only 'types',
-      // 'require' and 'import'. Resolution therefore returns undefined, the
-      // externals plugin silently gives up, and the package gets bundled after
-      // all. Nitro merges this list with its defaults rather than replacing it.
-      exportConditions: ['import'],
+      // Bundling through the CJS entries sidesteps both: no shim in the
+      // graph, and require('jose') becomes build-time interop instead of a
+      // runtime resolution against a loader Vercel controls.
       // Long-lived caching for content-hashed assets. Declared here rather than
       // in vercel.json because Nitro's generated .vercel/output/config.json is
       // authoritative for routing under the Build Output API — headers set in
@@ -243,6 +234,25 @@ export default defineConfig({
     alias: {
       '@': path.resolve(__dirname, './src'),
       '@shared': path.resolve(__dirname, './shared'),
+      // Enter firebase-admin through its CJS implementation, skipping the
+      // package's ESM shims — see the note on the nitro plugin above. Exact
+      // subpath matches; only these four are imported (src/server).
+      'firebase-admin/app': path.resolve(
+        __dirname,
+        'node_modules/firebase-admin/lib/app/index.js',
+      ),
+      'firebase-admin/auth': path.resolve(
+        __dirname,
+        'node_modules/firebase-admin/lib/auth/index.js',
+      ),
+      'firebase-admin/firestore': path.resolve(
+        __dirname,
+        'node_modules/firebase-admin/lib/firestore/index.js',
+      ),
+      'firebase-admin/storage': path.resolve(
+        __dirname,
+        'node_modules/firebase-admin/lib/storage/index.js',
+      ),
     },
   },
   build: {
