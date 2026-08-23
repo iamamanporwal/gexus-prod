@@ -1,4 +1,5 @@
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { publicPath } from '@/lib/utils';
 
 export function PrivacyPolicyView() {
   return (
@@ -7,7 +8,7 @@ export function PrivacyPolicyView() {
         <div className="rounded-lg bg-adam-bg-secondary-dark p-8 shadow-md">
           <div className="mb-8 flex flex-col items-center justify-center">
             <img
-              src={`${import.meta.env.BASE_URL}/cadam-logo.svg`}
+              src={publicPath('cadam-logo.svg')}
               alt="CADAM Logo"
               className="mb-4 h-8 w-auto"
             />

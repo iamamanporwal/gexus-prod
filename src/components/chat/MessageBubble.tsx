@@ -9,7 +9,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { CREATIVE_MODELS, PARAMETRIC_MODELS } from '@/lib/utils';
+import { CREATIVE_MODELS, PARAMETRIC_MODELS, publicPath } from '@/lib/utils';
 import { Avatar, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -495,10 +495,7 @@ function AssistantBubble({
       <div className="mr-2 mt-1 shrink-0">
         <Avatar className="h-9 w-9 border border-adam-neutral-700 bg-adam-neutral-950">
           <div style={{ padding: '0.6rem 0.5rem 0.5rem 0.55rem' }}>
-            <AvatarImage
-              src={`${import.meta.env.BASE_URL}/adam-logo.svg`}
-              alt="Adam"
-            />
+            <AvatarImage src={publicPath('adam-logo.svg')} alt="Adam" />
           </div>
         </Avatar>
       </div>

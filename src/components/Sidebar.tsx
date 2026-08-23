@@ -29,7 +29,7 @@ import { useIsMobile } from '@/hooks/useIsMobile';
 import { useQuery } from '@tanstack/react-query';
 import { ConditionalWrapper } from './ConditionalWrapper';
 import { DiscordIcon, GitHubIcon } from './icons/CompanyIcons';
-import { cn } from '@/lib/utils';
+import { cn, publicPath } from '@/lib/utils';
 import { Conversation, ConversationSettings } from '@shared/types';
 import { UserAvatar } from '@/components/chat/UserAvatar';
 import { useProfile } from '@/services/profileService';
@@ -129,7 +129,7 @@ function DesktopSidebar({ isSidebarOpen, setIsSidebarOpen }: SidebarProps) {
               </div>
             ) : (
               <img
-                src={`${import.meta.env.BASE_URL}/adam-logo.svg`}
+                src={publicPath('adam-logo.svg')}
                 alt="Logo"
                 className="h-8 w-8 min-w-8"
               />

@@ -4,6 +4,7 @@ import { useNavigate } from '@tanstack/react-router';
 import { guestUserId } from '@/lib/db';
 import { watchMeshUpdates } from '@/lib/firebaseMeshWatch';
 import { useProfile } from '@/services/profileService';
+import { publicPath } from '@/lib/utils';
 
 // Realtime mesh/preview invalidation + the "3D model is ready" notification.
 //
@@ -55,7 +56,7 @@ export function MeshRealtimeProvider({
         if (await ensurePermission()) {
           const notification = new Notification('3D model is ready', {
             body: 'Your generated 3D model has finished. Click to open.',
-            icon: `${import.meta.env.BASE_URL}/Adam-Logo.png`,
+            icon: publicPath('Adam-Logo.png'),
           });
           notification.onclick = () => {
             window.focus();

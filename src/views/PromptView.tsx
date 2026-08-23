@@ -15,7 +15,6 @@ import { Model } from '@shared/types';
 import { MessageItem } from '../types/misc.ts';
 import { LimitReachedMessage } from '@/components/LimitReachedMessage';
 import { LowPromptsWarningMessage } from '@/components/LowPromptsWarningMessage';
-import { NewProductBanner } from '@/components/NewProductBanner';
 import { FreePlanTrialPill } from '@/components/FreePlanTrialPill';
 import { useIsMobile } from '@/hooks/useIsMobile';
 import { cn } from '@/lib/utils';
@@ -307,15 +306,6 @@ export function PromptView() {
                   </div>
                 )}
               </div>
-            </div>
-          </div>
-
-          {/* Float the banner in the gap between the (vertically centered)
-              composer and the bottom edge: a band over the lower third, with
-              the card centered inside it, instead of glued to bottom-0. */}
-          <div className="pointer-events-none absolute inset-x-0 bottom-0 top-[55%] flex items-center justify-center px-4 md:px-8">
-            <div className="pointer-events-auto w-full max-w-2xl">
-              <NewProductBanner />
             </div>
           </div>
         </main>
