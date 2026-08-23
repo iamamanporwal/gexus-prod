@@ -17,6 +17,7 @@ import {
   getFirestore,
   collection,
   doc,
+  getDoc,
   getDocs,
   setDoc,
   deleteDoc,
@@ -152,6 +153,43 @@ export function guestUserLabel(): string {
 
 const clientAdapter: FirestoreAdapter = {
   async read(spec: QuerySpec): Promise<Row[]> {
+    // An equality on `id` is a document lookup, and running it as a query
+    // instead is not just slower — under Security Rules it is DENIED. Rules
+    // evaluate list operations against the query's constraints, not against
+    // the matching documents, so a query that doesn't constrain `user_id`
+    // can never prove `ownsExisting()` — the request 403s even when every
+    // matching row belongs to the caller. This is exactly what broke the
+    // editor at generation time (meshes/images lookups) and share links
+    // (conversations lookup, where `privacy == 'public'` is equally
+    // unprovable from a query). A single-document get is evaluated against
+    // the real document, where those conditions are simply true or false.
+    //
+    // runUpdate/runDelete read through this method to find their targets, so
+    // the fix covers .update().eq('id', ...) and .delete().eq('id', ...) too.
+    const idFilter = spec.filters.find(
+      (filter) => filter.kind === 'eq' && filter.column === 'id',
+    );
+    if (idFilter && idFilter.kind === 'eq') {
+      const snapshot = await getDoc(
+        doc(db(), spec.table, String(idFilter.value)),
+      );
+      if (!snapshot.exists()) return [];
+      const row: Row = { ...snapshot.data(), id: snapshot.id };
+      for (const filter of spec.filters) {
+        if (filter === idFilter) continue;
+        if (filter.kind === 'eq' && row[filter.column] !== filter.value) {
+          return [];
+        }
+        if (
+          filter.kind === 'in' &&
+          !filter.values.includes(row[filter.column])
+        ) {
+          return [];
+        }
+      }
+      return [row];
+    }
+
     const constraints = [];
 
     for (const filter of spec.filters) {

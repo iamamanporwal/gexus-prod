@@ -22,6 +22,17 @@ export function ErrorView({ error }: { error?: unknown }) {
         <br />
         Please feel free to reach out to us so that we can resolve this issue.
       </p>
+      {/* The concrete failure, not just the apology. Sentry gets the full
+          exception above, but the person looking at this screen is often
+          the one reporting the bug — a one-line reason turns "something
+          went wrong" screenshots into actionable reports. */}
+      {error !== undefined && error !== null && (
+        <p className="max-w-xl break-words px-4 text-center font-mono text-xs text-adam-text-secondary opacity-70">
+          {error instanceof Error
+            ? `${error.name}: ${error.message}`
+            : String(error)}
+        </p>
+      )}
       <Button onClick={() => navigate({ to: '/' })}>Go to Home</Button>
     </div>
   );

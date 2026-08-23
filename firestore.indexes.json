@@ -12,7 +12,11 @@
     "",
     "Deploy with: npx firebase deploy --only firestore:indexes",
     "Building them takes a few minutes on an empty database; queries fail until",
-    "the index state is READY."
+    "the index state is READY.",
+    "",
+    "previews has no entry on purpose: useGlbPreview queries it with",
+    "equalities only (conversation_id, mesh_id, status) and picks the newest",
+    "row client-side, because equality-only queries need no composite index."
   ],
   "indexes": [
     {
@@ -50,16 +54,6 @@
         { "fieldPath": "conversation_id", "order": "ASCENDING" },
         { "fieldPath": "role", "order": "ASCENDING" },
         { "fieldPath": "created_at", "order": "DESCENDING" }
-      ]
-    },
-    {
-      "//": "useGlbPreview: newest successful preview for a mesh",
-      "collectionGroup": "previews",
-      "queryScope": "COLLECTION",
-      "fields": [
-        { "fieldPath": "mesh_id", "order": "ASCENDING" },
-        { "fieldPath": "status", "order": "ASCENDING" },
-        { "fieldPath": "updated_at", "order": "DESCENDING" }
       ]
     },
     {

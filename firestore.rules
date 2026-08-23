@@ -87,7 +87,13 @@ service cloud.firestore {
     // when the parent conversation is public, so a shared link shows its models
     // and images instead of broken placeholders.
     match /images/{imageId} {
+      // ownsParent makes conversation-scoped LIST queries provable for the
+      // owner: a query pinning conversation_id can be authorized from its
+      // constraints alone, which ownsExisting (user_id) cannot when the query
+      // doesn't filter on user_id. Single-document gets pass through
+      // ownsExisting exactly as before.
       allow read: if (ownsExisting())
+                     || (ownsParent(resource.data.conversation_id))
                      || (parentIsPublic(resource.data.conversation_id));
       allow create: if ownsIncoming();
       allow update: if (ownsExisting()) && (ownsIncoming());
@@ -95,7 +101,13 @@ service cloud.firestore {
     }
 
     match /meshes/{meshId} {
+      // ownsParent makes conversation-scoped LIST queries provable for the
+      // owner: a query pinning conversation_id can be authorized from its
+      // constraints alone, which ownsExisting (user_id) cannot when the query
+      // doesn't filter on user_id. Single-document gets pass through
+      // ownsExisting exactly as before.
       allow read: if (ownsExisting())
+                     || (ownsParent(resource.data.conversation_id))
                      || (parentIsPublic(resource.data.conversation_id));
       allow create: if ownsIncoming();
       allow update: if (ownsExisting()) && (ownsIncoming());
@@ -103,7 +115,13 @@ service cloud.firestore {
     }
 
     match /previews/{previewId} {
+      // ownsParent makes conversation-scoped LIST queries provable for the
+      // owner: a query pinning conversation_id can be authorized from its
+      // constraints alone, which ownsExisting (user_id) cannot when the query
+      // doesn't filter on user_id. Single-document gets pass through
+      // ownsExisting exactly as before.
       allow read: if (ownsExisting())
+                     || (ownsParent(resource.data.conversation_id))
                      || (parentIsPublic(resource.data.conversation_id));
       allow create: if ownsIncoming();
       allow update: if (ownsExisting()) && (ownsIncoming());
