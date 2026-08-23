@@ -10,7 +10,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
-    "postbuild": "node scripts/flatten-traced-node-modules.mjs",
+    "postbuild": "node scripts/make-server-output-self-contained.mjs",
     "lint": "eslint . --ignore-pattern 'supabase/**'",
     "typecheck": "tsc -b --noEmit",
     "format": "prettier --write .",
