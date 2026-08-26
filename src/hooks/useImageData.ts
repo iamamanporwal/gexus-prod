@@ -1,5 +1,6 @@
 import { useConversation } from '@/contexts/ConversationContext';
 import { supabase } from '@/lib/db';
+import { downloadConversationAsset } from '@/lib/conversationAssets';
 import { Prompt } from '@shared/types';
 import { useQueries, useQuery } from '@tanstack/react-query';
 
@@ -37,12 +38,12 @@ export function useImageData(id: string) {
     enabled: dataQuery.data?.status === 'success',
     queryFn: async () => {
       const reader = new FileReader();
-      const { data } = await supabase.storage
-        .from('images')
-        .download(`${conversation.user_id}/${conversation.id}/${id}`);
-      if (!data) {
-        throw new Error('Failed to download image');
-      }
+      const data = await downloadConversationAsset({
+        ownerId: conversation.user_id,
+        conversationId: conversation.id,
+        kind: 'images',
+        file: id,
+      });
       const urlPromise = new Promise((resolve) => {
         reader.onload = () => {
           resolve(reader.result as string);
@@ -92,12 +93,12 @@ export function useImagesData(ids: string[]) {
       ),
       queryFn: async () => {
         const reader = new FileReader();
-        const { data } = await supabase.storage
-          .from('images')
-          .download(`${conversation.user_id}/${conversation.id}/${id}`);
-        if (!data) {
-          throw new Error('Failed to download image');
-        }
+        const data = await downloadConversationAsset({
+          ownerId: conversation.user_id,
+          conversationId: conversation.id,
+          kind: 'images',
+          file: id,
+        });
         const urlPromise = new Promise((resolve) => {
           reader.onload = () => {
             resolve(reader.result as string);

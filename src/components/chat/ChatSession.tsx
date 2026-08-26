@@ -11,6 +11,8 @@ import { messageRowToChatMessage, type ChatMessage } from '@/lib/aiMessages';
 import { collectStuckToolRecovery } from '@/components/chat/stuckToolRecovery';
 import { AssistantRowMissingError } from '@/services/messageService';
 import { supabase, guestUserId } from '@/lib/db';
+import { useAuth } from '@/contexts/AuthContext';
+import { REQUIRE_SIGN_IN_TO_GENERATE } from '@/config/access';
 import {
   generateColoredPreview,
   generateInspectionPreview,
@@ -76,6 +78,14 @@ interface ChatSessionProps {
    *  parent show the bouncing loader in the preview pane while the model
    *  is still producing the next artifact. */
   onLoadingChange?: (isLoading: boolean) => void;
+  /**
+   * A prompt typed elsewhere that should be sent as soon as this conversation
+   * opens — currently the prompt bar on a shared model, which remixes and
+   * lands here. Sent exactly once; `onInitialPromptSent` lets the parent clear
+   * it from the URL so a refresh does not send it again.
+   */
+  initialPrompt?: string;
+  onInitialPromptSent?: () => void;
 }
 
 type ToolMessagePart = Extract<
@@ -155,9 +165,12 @@ export function ChatSession({
   onViewArtifact,
   onViewMesh,
   onLoadingChange,
+  initialPrompt,
+  onInitialPromptSent,
 }: ChatSessionProps) {
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const { requireSignIn } = useAuth();
 
   // ───────────────────────────────────────────────────────────────────────
   // Transport — strips client state out of the wire body. Server reads the
@@ -812,6 +825,10 @@ export function ChatSession({
   // ───────────────────────────────────────────────────────────────────────
   const handleSend = useCallback(
     async (parts: AppUIMessage['parts']) => {
+      // Guests send freely by default — see src/config/access.ts for the one
+      // constant that puts the sign-in wall here instead.
+      if (REQUIRE_SIGN_IN_TO_GENERATE && !requireSignIn('prompt')) return;
+
       const text = parts
         .filter((p) => p.type === 'text')
         .map((p) => p.text)
@@ -842,8 +859,31 @@ export function ChatSession({
         { body: { model } },
       );
     },
-    [conversation.id, conversation.type, model, onSendParts, sendMessage],
+    [
+      conversation.id,
+      conversation.type,
+      model,
+      onSendParts,
+      sendMessage,
+      requireSignIn,
+    ],
   );
+
+  // Send a prompt carried in from another page, once.
+  //
+  // The ref, not a state flag, is what makes "once" true: this effect's deps
+  // include `handleSend`, which is recreated whenever `model` changes — and a
+  // model swap arrives moments after mount via `resolveUsableModel`. Guarding
+  // on state would re-run before the state update committed and send twice,
+  // charging the person for two generations of the same prompt.
+  const sentInitialPromptRef = useRef(false);
+  useEffect(() => {
+    if (!initialPrompt?.trim()) return;
+    if (sentInitialPromptRef.current) return;
+    sentInitialPromptRef.current = true;
+    void handleSend([{ type: 'text', text: initialPrompt.trim() }]);
+    onInitialPromptSent?.();
+  }, [initialPrompt, handleSend, onInitialPromptSent]);
 
   const handleEditUserText = useCallback(
     async (original: ChatMessage, text: string) => {

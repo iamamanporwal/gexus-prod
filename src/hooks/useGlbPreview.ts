@@ -1,5 +1,6 @@
 import { useConversation } from '@/contexts/ConversationContext';
 import { supabase } from '@/lib/db';
+import { downloadConversationAsset } from '@/lib/conversationAssets';
 import { useQuery } from '@tanstack/react-query';
 
 export const useGlbPreview = ({ id }: { id?: string }) => {
@@ -42,11 +43,15 @@ export const useGlbPreview = ({ id }: { id?: string }) => {
 
       const downloadStart = Date.now();
 
-      const { data: previewBlob } = await supabase.storage
-        .from('previews')
-        .download(
-          `${preview.user_id}/${preview.conversation_id}/${preview.id}.glb`,
-        );
+      // A preview that cannot be fetched must not fail the query: the viewer
+      // falls back to the full mesh, and a share-link visitor whose preview is
+      // still generating should see that, not an error.
+      const previewBlob = await downloadConversationAsset({
+        ownerId: String(preview.user_id),
+        conversationId: String(preview.conversation_id),
+        kind: 'previews',
+        file: `${preview.id}.glb`,
+      }).catch(() => null);
 
       const downloadEnd = Date.now();
       const downloadTime = downloadEnd - downloadStart;

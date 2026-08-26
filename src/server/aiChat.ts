@@ -27,12 +27,13 @@ import { z } from 'zod';
 import { billing, BillingClientError } from './billingClient';
 import {
   corsHeaders,
+  forwardedAuthorization,
   isRecord,
   isUnauthorizedError,
   requireUser,
   type AuthedUser,
 } from './api';
-import { env, requiredEnv } from './env';
+import { apiEndpoint, env, requiredEnv } from './env';
 import { logError } from './serverLog';
 import {
   decidePersistAction,
@@ -280,7 +281,9 @@ Creative rules:
 - Keep replies short.
 - If the request is better suited for precise CAD, say Adam can make it as a CAD model.
 - Preserve the user's intent when improving a prompt for mesh generation.
-- When the user provides images, use the image IDs from file part filenames when helpful.
+- When the user attaches an image, the id is stated right before it as
+  "[attached image id: <id>]". Pass every attached id in create_mesh's
+  imageIds so the mesh is built from the user's image, not from text alone.
 - Do not mention tools, APIs, or implementation details to the user.`;
 
 /**
@@ -854,29 +857,95 @@ async function generateConversationSuggestions({
   }
 }
 
+/** Image ids attached by the user on this branch, most recent turn first. */
+function collectBranchImageIds(branch: AppUIMessage[]): string[] {
+  const ids: string[] = [];
+  for (const message of [...branch].reverse()) {
+    if (message.role !== 'user') continue;
+    for (const part of message.parts) {
+      if (part.type !== 'file') continue;
+      if (typeof part.mediaType !== 'string') continue;
+      if (!part.mediaType.startsWith('image/')) continue;
+      const id = imageIdFromFilename(part.filename);
+      if (id && !ids.includes(id)) ids.push(id);
+    }
+  }
+  return ids;
+}
+
+/**
+ * Inserts `[attached image id: …]` before each image part so the model can
+ * cite the id in a `create_mesh` call. See the call site for why the id is
+ * otherwise invisible to the model.
+ */
+function withImageIdAnnotations(message: AppUIMessage): AppUIMessage {
+  if (message.role !== 'user') return message;
+
+  const parts: AppUIMessage['parts'] = [];
+  for (const part of message.parts) {
+    const id =
+      part.type === 'file' &&
+      typeof part.mediaType === 'string' &&
+      part.mediaType.startsWith('image/')
+        ? imageIdFromFilename(part.filename)
+        : null;
+    if (id) parts.push({ type: 'text', text: `[attached image id: ${id}]` });
+    parts.push(part);
+  }
+
+  return { ...message, parts };
+}
+
 function creativeTools({
   conversation,
   req,
   model,
+  fallbackImageIds,
 }: {
   conversation: ConversationAccess;
   req: Request;
   model: Model;
+  fallbackImageIds: string[];
 }) {
   return {
     create_mesh: {
       ...chatTools.create_mesh,
       execute: async (input: AppTools['create_mesh']['input']) => {
         const response = await handleMeshRequest(
-          new Request(new URL('/cadam/api/mesh', req.url), {
+          // The origin has to be the real one, not a placeholder:
+          // handleMeshRequest derives the fal callback URL from this request's
+          // origin (webhookBaseUrl), so a synthetic host would send fal's
+          // result to a domain that does not exist.
+          new Request(apiEndpoint(new URL(req.url).origin, 'mesh'), {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
+              // Forward the caller's verified bearer token.
+              //
+              // handleMeshRequest is a full HTTP handler and derives identity
+              // from this header via requireUser(). Calling it with a Request
+              // we synthesise here means the header only exists if we put it
+              // there — and it was not being put there, so EVERY image-to-3D
+              // generation 401'd and surfaced as the generic "Mesh generation
+              // failed". This one line is the difference between the feature
+              // working and never running at all.
+              //
+              // It is also the correct identity to use: the token was verified
+              // by this same request's own requireUser() call, so the uid the
+              // mesh row is written under is exactly the caller's.
+              ...forwardedAuthorization(req),
             },
             body: JSON.stringify({
               conversationId: conversation.id,
               text: input.text,
-              images: input.imageIds,
+              // Fall back to the branch's own attachments when the model did
+              // not name any. Dropping the user's uploaded image and building
+              // from the text alone is the worst possible outcome here: it
+              // succeeds, bills tokens, and returns a model of the wrong
+              // thing.
+              images: input.imageIds?.length
+                ? input.imageIds
+                : fallbackImageIds,
               mesh: input.meshId,
               model: input.model ?? model,
               meshTopology: input.meshTopology,
@@ -1096,15 +1165,6 @@ export async function handleAiChatRequest(req: Request) {
     return jsonResponse({ error: 'Billing service unavailable' }, 503);
   }
 
-  const tools =
-    conversation.type === 'creative'
-      ? creativeTools({ conversation, req, model: rawBody.model })
-      : parametricTools({
-          supabaseClient,
-          previewPathForToolCall: (toolCallId) =>
-            `${user.id}/${conversation.id}/inspection-preview-${toolCallId}`,
-        });
-
   let branchMessages: AppUIMessage[];
   let leafRole: 'user' | 'assistant';
   try {
@@ -1125,6 +1185,32 @@ export async function handleAiChatRequest(req: Request) {
     });
     return jsonResponse({ error: 'Failed to load conversation branch' }, 500);
   }
+
+  // Image ids the user attached on this branch, most recent turn first.
+  //
+  // The model is asked to pass these to `create_mesh` as `imageIds`, but it
+  // cannot always see them: `convertToModelMessages` turns an image file part
+  // into a provider image block and drops `filename`, which is the only place
+  // the id lives. So the ids are also stated in plain text beside each image
+  // (see the hydration step below) AND kept here as a fallback the tool uses
+  // when the model omits them. Without the fallback, "make this into a 3D
+  // model" silently generates from the text alone and ignores the upload —
+  // which reads to a user as image-to-3D being broken.
+  const branchImageIds = collectBranchImageIds(branchMessages);
+
+  const tools =
+    conversation.type === 'creative'
+      ? creativeTools({
+          conversation,
+          req,
+          model: rawBody.model,
+          fallbackImageIds: branchImageIds,
+        })
+      : parametricTools({
+          supabaseClient,
+          previewPathForToolCall: (toolCallId) =>
+            `${user.id}/${conversation.id}/inspection-preview-${toolCallId}`,
+        });
 
   const leafMessageId = conversation.current_message_leaf_id;
 
@@ -1193,8 +1279,21 @@ export async function handleAiChatRequest(req: Request) {
     })),
   );
 
+  // Name each attached image in the text the model actually receives.
+  //
+  // `create_mesh` takes `imageIds`, and CREATIVE_AGENT_PROMPT tells the model
+  // to take them "from file part filenames" — but no provider is ever shown a
+  // filename: convertToModelMessages renders an image file part as a bare
+  // image block. The instruction was therefore unfollowable, and the model had
+  // to guess or omit the ids. A short text part carrying the id sits next to
+  // the image and makes it referenceable.
+  const messagesForModel =
+    conversation.type === 'creative'
+      ? hydratedMessages.map(withImageIdAnnotations)
+      : hydratedMessages;
+
   const modelMessages = await convertToModelMessages<AppUIMessage>(
-    hydratedMessages,
+    messagesForModel,
     {
       tools,
       convertDataPart: (part) => {

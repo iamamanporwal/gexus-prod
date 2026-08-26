@@ -1,7 +1,44 @@
 import { Conversation } from '@shared/types';
 import { supabase, guestUserId } from '@/lib/db';
+import { apiJson } from '@/services/api';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useParams } from '@tanstack/react-router';
+import { z } from 'zod';
+
+const forkResultSchema = z.object({
+  conversationId: z.string(),
+  copiedMessages: z.number().optional(),
+  copiedObjects: z.number().optional(),
+});
+
+/**
+ * Copies a shared conversation into the caller's account and returns the new
+ * id.
+ *
+ * Server-side because the copy spans another user's documents and storage
+ * objects: the client has no read access to either, by design. See
+ * src/server/forkConversation.ts.
+ */
+export function useForkConversation() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (conversationId: string) => {
+      const result = await apiJson(
+        'fork-conversation',
+        {
+          method: 'POST',
+          body: JSON.stringify({ conversationId }),
+        },
+        forkResultSchema,
+      );
+      return result;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['conversations'] });
+    },
+  });
+}
 
 const defaultConversation: Conversation = {
   id: '',

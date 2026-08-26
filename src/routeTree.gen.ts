@@ -11,13 +11,17 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as TermsOfServiceRouteImport } from './routes/terms-of-service'
 import { Route as PrivacyPolicyRouteImport } from './routes/privacy-policy'
+import { Route as LoginRouteImport } from './routes/login'
 import { Route as LayoutRouteImport } from './routes/_layout'
 import { Route as LayoutIndexRouteImport } from './routes/_layout/index'
+import { Route as ShareIdRouteImport } from './routes/share.$id'
 import { Route as AssetsSplatRouteImport } from './routes/assets.$'
 import { Route as ApiTitleGeneratorRouteImport } from './routes/api/title-generator'
+import { Route as ApiPublicAssetRouteImport } from './routes/api/public-asset'
 import { Route as ApiPromptGeneratorRouteImport } from './routes/api/prompt-generator'
 import { Route as ApiParametricChatRouteImport } from './routes/api/parametric-chat'
 import { Route as ApiMeshRouteImport } from './routes/api/mesh'
+import { Route as ApiForkConversationRouteImport } from './routes/api/fork-conversation'
 import { Route as ApiFalWebhookRouteImport } from './routes/api/fal-webhook'
 import { Route as ApiCreativeChatRouteImport } from './routes/api/creative-chat'
 import { Route as ApiBillingStatusRouteImport } from './routes/api/billing-status'
@@ -29,7 +33,6 @@ import { Route as LayoutSettingsRouteImport } from './routes/_layout/settings'
 import { Route as LayoutHistoryRouteImport } from './routes/_layout/history'
 import { Route as LayoutSplatRouteImport } from './routes/_layout/$'
 import { Route as ApiJacksonPollockSplatRouteImport } from './routes/api/jackson-pollock/$'
-import { Route as LayoutShareIdRouteImport } from './routes/_layout/share/$id'
 import { Route as LayoutEditorIdRouteImport } from './routes/_layout/editor/$id'
 
 const TermsOfServiceRoute = TermsOfServiceRouteImport.update({
@@ -42,6 +45,11 @@ const PrivacyPolicyRoute = PrivacyPolicyRouteImport.update({
   path: '/privacy-policy',
   getParentRoute: () => rootRouteImport,
 } as any)
+const LoginRoute = LoginRouteImport.update({
+  id: '/login',
+  path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const LayoutRoute = LayoutRouteImport.update({
   id: '/_layout',
   getParentRoute: () => rootRouteImport,
@@ -51,6 +59,11 @@ const LayoutIndexRoute = LayoutIndexRouteImport.update({
   path: '/',
   getParentRoute: () => LayoutRoute,
 } as any)
+const ShareIdRoute = ShareIdRouteImport.update({
+  id: '/share/$id',
+  path: '/share/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AssetsSplatRoute = AssetsSplatRouteImport.update({
   id: '/assets/$',
   path: '/assets/$',
@@ -59,6 +72,11 @@ const AssetsSplatRoute = AssetsSplatRouteImport.update({
 const ApiTitleGeneratorRoute = ApiTitleGeneratorRouteImport.update({
   id: '/api/title-generator',
   path: '/api/title-generator',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPublicAssetRoute = ApiPublicAssetRouteImport.update({
+  id: '/api/public-asset',
+  path: '/api/public-asset',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiPromptGeneratorRoute = ApiPromptGeneratorRouteImport.update({
@@ -74,6 +92,11 @@ const ApiParametricChatRoute = ApiParametricChatRouteImport.update({
 const ApiMeshRoute = ApiMeshRouteImport.update({
   id: '/api/mesh',
   path: '/api/mesh',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiForkConversationRoute = ApiForkConversationRouteImport.update({
+  id: '/api/fork-conversation',
+  path: '/api/fork-conversation',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiFalWebhookRoute = ApiFalWebhookRouteImport.update({
@@ -131,11 +154,6 @@ const ApiJacksonPollockSplatRoute = ApiJacksonPollockSplatRouteImport.update({
   path: '/api/jackson-pollock/$',
   getParentRoute: () => rootRouteImport,
 } as any)
-const LayoutShareIdRoute = LayoutShareIdRouteImport.update({
-  id: '/share/$id',
-  path: '/share/$id',
-  getParentRoute: () => LayoutRoute,
-} as any)
 const LayoutEditorIdRoute = LayoutEditorIdRouteImport.update({
   id: '/editor/$id',
   path: '/editor/$id',
@@ -144,6 +162,7 @@ const LayoutEditorIdRoute = LayoutEditorIdRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof LayoutIndexRoute
+  '/login': typeof LoginRoute
   '/privacy-policy': typeof PrivacyPolicyRoute
   '/terms-of-service': typeof TermsOfServiceRoute
   '/$': typeof LayoutSplatRoute
@@ -156,16 +175,19 @@ export interface FileRoutesByFullPath {
   '/api/billing-status': typeof ApiBillingStatusRoute
   '/api/creative-chat': typeof ApiCreativeChatRoute
   '/api/fal-webhook': typeof ApiFalWebhookRoute
+  '/api/fork-conversation': typeof ApiForkConversationRoute
   '/api/mesh': typeof ApiMeshRoute
   '/api/parametric-chat': typeof ApiParametricChatRoute
   '/api/prompt-generator': typeof ApiPromptGeneratorRoute
+  '/api/public-asset': typeof ApiPublicAssetRoute
   '/api/title-generator': typeof ApiTitleGeneratorRoute
   '/assets/$': typeof AssetsSplatRoute
+  '/share/$id': typeof ShareIdRoute
   '/editor/$id': typeof LayoutEditorIdRoute
-  '/share/$id': typeof LayoutShareIdRoute
   '/api/jackson-pollock/$': typeof ApiJacksonPollockSplatRoute
 }
 export interface FileRoutesByTo {
+  '/login': typeof LoginRoute
   '/privacy-policy': typeof PrivacyPolicyRoute
   '/terms-of-service': typeof TermsOfServiceRoute
   '/$': typeof LayoutSplatRoute
@@ -178,19 +200,22 @@ export interface FileRoutesByTo {
   '/api/billing-status': typeof ApiBillingStatusRoute
   '/api/creative-chat': typeof ApiCreativeChatRoute
   '/api/fal-webhook': typeof ApiFalWebhookRoute
+  '/api/fork-conversation': typeof ApiForkConversationRoute
   '/api/mesh': typeof ApiMeshRoute
   '/api/parametric-chat': typeof ApiParametricChatRoute
   '/api/prompt-generator': typeof ApiPromptGeneratorRoute
+  '/api/public-asset': typeof ApiPublicAssetRoute
   '/api/title-generator': typeof ApiTitleGeneratorRoute
   '/assets/$': typeof AssetsSplatRoute
+  '/share/$id': typeof ShareIdRoute
   '/': typeof LayoutIndexRoute
   '/editor/$id': typeof LayoutEditorIdRoute
-  '/share/$id': typeof LayoutShareIdRoute
   '/api/jackson-pollock/$': typeof ApiJacksonPollockSplatRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_layout': typeof LayoutRouteWithChildren
+  '/login': typeof LoginRoute
   '/privacy-policy': typeof PrivacyPolicyRoute
   '/terms-of-service': typeof TermsOfServiceRoute
   '/_layout/$': typeof LayoutSplatRoute
@@ -203,20 +228,23 @@ export interface FileRoutesById {
   '/api/billing-status': typeof ApiBillingStatusRoute
   '/api/creative-chat': typeof ApiCreativeChatRoute
   '/api/fal-webhook': typeof ApiFalWebhookRoute
+  '/api/fork-conversation': typeof ApiForkConversationRoute
   '/api/mesh': typeof ApiMeshRoute
   '/api/parametric-chat': typeof ApiParametricChatRoute
   '/api/prompt-generator': typeof ApiPromptGeneratorRoute
+  '/api/public-asset': typeof ApiPublicAssetRoute
   '/api/title-generator': typeof ApiTitleGeneratorRoute
   '/assets/$': typeof AssetsSplatRoute
+  '/share/$id': typeof ShareIdRoute
   '/_layout/': typeof LayoutIndexRoute
   '/_layout/editor/$id': typeof LayoutEditorIdRoute
-  '/_layout/share/$id': typeof LayoutShareIdRoute
   '/api/jackson-pollock/$': typeof ApiJacksonPollockSplatRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/login'
     | '/privacy-policy'
     | '/terms-of-service'
     | '/$'
@@ -229,16 +257,19 @@ export interface FileRouteTypes {
     | '/api/billing-status'
     | '/api/creative-chat'
     | '/api/fal-webhook'
+    | '/api/fork-conversation'
     | '/api/mesh'
     | '/api/parametric-chat'
     | '/api/prompt-generator'
+    | '/api/public-asset'
     | '/api/title-generator'
     | '/assets/$'
-    | '/editor/$id'
     | '/share/$id'
+    | '/editor/$id'
     | '/api/jackson-pollock/$'
   fileRoutesByTo: FileRoutesByTo
   to:
+    | '/login'
     | '/privacy-policy'
     | '/terms-of-service'
     | '/$'
@@ -251,18 +282,21 @@ export interface FileRouteTypes {
     | '/api/billing-status'
     | '/api/creative-chat'
     | '/api/fal-webhook'
+    | '/api/fork-conversation'
     | '/api/mesh'
     | '/api/parametric-chat'
     | '/api/prompt-generator'
+    | '/api/public-asset'
     | '/api/title-generator'
     | '/assets/$'
+    | '/share/$id'
     | '/'
     | '/editor/$id'
-    | '/share/$id'
     | '/api/jackson-pollock/$'
   id:
     | '__root__'
     | '/_layout'
+    | '/login'
     | '/privacy-policy'
     | '/terms-of-service'
     | '/_layout/$'
@@ -275,19 +309,22 @@ export interface FileRouteTypes {
     | '/api/billing-status'
     | '/api/creative-chat'
     | '/api/fal-webhook'
+    | '/api/fork-conversation'
     | '/api/mesh'
     | '/api/parametric-chat'
     | '/api/prompt-generator'
+    | '/api/public-asset'
     | '/api/title-generator'
     | '/assets/$'
+    | '/share/$id'
     | '/_layout/'
     | '/_layout/editor/$id'
-    | '/_layout/share/$id'
     | '/api/jackson-pollock/$'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   LayoutRoute: typeof LayoutRouteWithChildren
+  LoginRoute: typeof LoginRoute
   PrivacyPolicyRoute: typeof PrivacyPolicyRoute
   TermsOfServiceRoute: typeof TermsOfServiceRoute
   ApiAvailableModelsRoute: typeof ApiAvailableModelsRoute
@@ -296,11 +333,14 @@ export interface RootRouteChildren {
   ApiBillingStatusRoute: typeof ApiBillingStatusRoute
   ApiCreativeChatRoute: typeof ApiCreativeChatRoute
   ApiFalWebhookRoute: typeof ApiFalWebhookRoute
+  ApiForkConversationRoute: typeof ApiForkConversationRoute
   ApiMeshRoute: typeof ApiMeshRoute
   ApiParametricChatRoute: typeof ApiParametricChatRoute
   ApiPromptGeneratorRoute: typeof ApiPromptGeneratorRoute
+  ApiPublicAssetRoute: typeof ApiPublicAssetRoute
   ApiTitleGeneratorRoute: typeof ApiTitleGeneratorRoute
   AssetsSplatRoute: typeof AssetsSplatRoute
+  ShareIdRoute: typeof ShareIdRoute
   ApiJacksonPollockSplatRoute: typeof ApiJacksonPollockSplatRoute
 }
 
@@ -320,6 +360,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PrivacyPolicyRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/_layout': {
       id: '/_layout'
       path: ''
@@ -334,6 +381,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LayoutIndexRouteImport
       parentRoute: typeof LayoutRoute
     }
+    '/share/$id': {
+      id: '/share/$id'
+      path: '/share/$id'
+      fullPath: '/share/$id'
+      preLoaderRoute: typeof ShareIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/assets/$': {
       id: '/assets/$'
       path: '/assets/$'
@@ -346,6 +400,13 @@ declare module '@tanstack/react-router' {
       path: '/api/title-generator'
       fullPath: '/api/title-generator'
       preLoaderRoute: typeof ApiTitleGeneratorRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public-asset': {
+      id: '/api/public-asset'
+      path: '/api/public-asset'
+      fullPath: '/api/public-asset'
+      preLoaderRoute: typeof ApiPublicAssetRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/prompt-generator': {
@@ -367,6 +428,13 @@ declare module '@tanstack/react-router' {
       path: '/api/mesh'
       fullPath: '/api/mesh'
       preLoaderRoute: typeof ApiMeshRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/fork-conversation': {
+      id: '/api/fork-conversation'
+      path: '/api/fork-conversation'
+      fullPath: '/api/fork-conversation'
+      preLoaderRoute: typeof ApiForkConversationRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/fal-webhook': {
@@ -446,13 +514,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiJacksonPollockSplatRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/_layout/share/$id': {
-      id: '/_layout/share/$id'
-      path: '/share/$id'
-      fullPath: '/share/$id'
-      preLoaderRoute: typeof LayoutShareIdRouteImport
-      parentRoute: typeof LayoutRoute
-    }
     '/_layout/editor/$id': {
       id: '/_layout/editor/$id'
       path: '/editor/$id'
@@ -470,7 +531,6 @@ interface LayoutRouteChildren {
   LayoutSubscriptionRoute: typeof LayoutSubscriptionRoute
   LayoutIndexRoute: typeof LayoutIndexRoute
   LayoutEditorIdRoute: typeof LayoutEditorIdRoute
-  LayoutShareIdRoute: typeof LayoutShareIdRoute
 }
 
 const LayoutRouteChildren: LayoutRouteChildren = {
@@ -480,7 +540,6 @@ const LayoutRouteChildren: LayoutRouteChildren = {
   LayoutSubscriptionRoute: LayoutSubscriptionRoute,
   LayoutIndexRoute: LayoutIndexRoute,
   LayoutEditorIdRoute: LayoutEditorIdRoute,
-  LayoutShareIdRoute: LayoutShareIdRoute,
 }
 
 const LayoutRouteWithChildren =
@@ -488,6 +547,7 @@ const LayoutRouteWithChildren =
 
 const rootRouteChildren: RootRouteChildren = {
   LayoutRoute: LayoutRouteWithChildren,
+  LoginRoute: LoginRoute,
   PrivacyPolicyRoute: PrivacyPolicyRoute,
   TermsOfServiceRoute: TermsOfServiceRoute,
   ApiAvailableModelsRoute: ApiAvailableModelsRoute,
@@ -496,11 +556,14 @@ const rootRouteChildren: RootRouteChildren = {
   ApiBillingStatusRoute: ApiBillingStatusRoute,
   ApiCreativeChatRoute: ApiCreativeChatRoute,
   ApiFalWebhookRoute: ApiFalWebhookRoute,
+  ApiForkConversationRoute: ApiForkConversationRoute,
   ApiMeshRoute: ApiMeshRoute,
   ApiParametricChatRoute: ApiParametricChatRoute,
   ApiPromptGeneratorRoute: ApiPromptGeneratorRoute,
+  ApiPublicAssetRoute: ApiPublicAssetRoute,
   ApiTitleGeneratorRoute: ApiTitleGeneratorRoute,
   AssetsSplatRoute: AssetsSplatRoute,
+  ShareIdRoute: ShareIdRoute,
   ApiJacksonPollockSplatRoute: ApiJacksonPollockSplatRoute,
 }
 export const routeTree = rootRouteImport

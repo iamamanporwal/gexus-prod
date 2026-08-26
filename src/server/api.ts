@@ -76,3 +76,21 @@ export async function requireUser(request: Request): Promise<AuthedUser> {
 }
 
 export type AuthedUser = { id: string };
+
+/**
+ * Copies the caller's `Authorization` header onto a request this server makes
+ * to one of its own handlers.
+ *
+ * A handler like `handleMeshRequest` is written as an HTTP entry point and gets
+ * its identity from `requireUser`, which reads exactly this header. When one
+ * handler invokes another in-process it has to pass that identity along
+ * explicitly, or the inner handler sees an anonymous request and 401s. Returns
+ * an empty object when there is no header, so the inner handler still produces
+ * its normal 401 rather than crashing on a malformed value.
+ */
+export function forwardedAuthorization(
+  request: Request,
+): Record<string, string> {
+  const header = request.headers.get('Authorization');
+  return header ? { Authorization: header } : {};
+}

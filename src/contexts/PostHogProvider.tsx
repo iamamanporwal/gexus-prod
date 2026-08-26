@@ -20,7 +20,7 @@ export function PostHogProvider({ children }: PostHogProviderProps) {
   // identify at all. No email is sent: an anonymous user has none, and a
   // synthetic one would pollute PostHog with addresses that look real.
   //
-  // Safe to read synchronously: this provider mounts inside GuestSessionGate.
+  // Safe to read synchronously: this provider mounts inside AuthProvider.
   useEffect(() => {
     analytics.identify(guestUserId());
   }, []);

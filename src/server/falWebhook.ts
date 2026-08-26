@@ -44,10 +44,20 @@ export async function handleFalWebhookRequest(request: Request) {
     return new Response('Missing mesh ID', { status: 200 });
   }
 
-  // Validate that the ID is a valid UUID
-  const uuidRegex =
-    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-  if (!uuidRegex.test(id)) {
+  // The id names a Firestore document, so validate it as one.
+  //
+  // This used to require a UUID, which was correct against Postgres
+  // (`gen_random_uuid()`) and is wrong against Firestore: rows inserted
+  // without an explicit id get a 20-character auto-id from
+  // `collection.doc().id` (see runWrite in shared/firestore/queryBuilder.ts),
+  // and meshes/previews are inserted exactly that way. Every single callback
+  // was therefore rejected here before it could touch the row — the mesh
+  // finished at fal and then sat at 'pending' forever.
+  //
+  // Kept strict rather than dropped: `id` is interpolated into a document path
+  // and a storage object path below, so '/', '..' and overlong values must not
+  // get through. UUIDs still match, so pre-migration rows keep working.
+  if (!/^[A-Za-z0-9_-]{1,128}$/.test(id)) {
     console.error('Invalid mesh ID format:', id);
     return new Response('Invalid mesh ID format', { status: 200 });
   }
@@ -300,6 +310,12 @@ export async function handleFalWebhookRequest(request: Request) {
         model,
         {
           contentType,
+          // fal retries a webhook it considers undelivered, and the object path
+          // is derived from the row id — so a retry targets a path that may
+          // already hold the identical bytes. Without upsert the shim rejects
+          // that as "Object already exists", and the retry ends up marking an
+          // already-finished mesh as failed.
+          upsert: true,
         },
       );
 

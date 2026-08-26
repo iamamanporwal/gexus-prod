@@ -10,8 +10,14 @@ import { initializeApp, getApps, type FirebaseApp } from 'firebase/app';
 import {
   getAuth,
   signInAnonymously,
+  signInWithCredential,
+  signInWithPopup,
+  signOut,
+  linkWithPopup,
   onAuthStateChanged,
+  GoogleAuthProvider,
   type Auth,
+  type User,
 } from 'firebase/auth';
 import {
   getFirestore,
@@ -86,16 +92,82 @@ export const firebaseAuth = (): Auth => getAuth(firebaseApp());
 const db = (): Firestore => getFirestore(firebaseApp());
 const storage = (): FirebaseStorage => getStorage(firebaseApp());
 
-// ── Guest identity ─────────────────────────────────────────────────────────
-// Anonymous Auth gives each browser a real uid inside a signed token, which is
-// what lets Security Rules enforce per-user isolation. The session persists in
-// IndexedDB by default, so a reload keeps the same uid and the same history.
+// ── Identity ───────────────────────────────────────────────────────────────
+//
+// Two kinds of session, one uid space:
+//
+//   Guest    — Anonymous Auth. Every visitor gets one immediately, so the app
+//              is fully usable before anyone signs in and Security Rules still
+//              have a real uid to enforce per-user isolation against. Persists
+//              in IndexedDB, so a reload keeps the same uid and the same work.
+//   Signed in — the same account after `linkWithPopup(Google)`. Linking is what
+//              makes signing in non-destructive: the anonymous account is
+//              UPGRADED in place, so the uid does not change and every
+//              conversation, mesh and storage object the guest created stays
+//              theirs. Signing in with a fresh Google account instead would
+//              strand all of it under a uid nobody can reach again.
+//
+// Everything downstream keeps calling `guestUserId()`; whether the account is
+// anonymous or Google-backed is a property of the session, not a different
+// code path.
 
 let cachedUid: string | null = null;
 
-export async function ensureGuestSession(): Promise<string> {
-  if (cachedUid) return cachedUid;
+// The RUNNING ensureGuestSession() attempt, so concurrent callers share one.
+//
+// Without this, two callers that both arrive before the first resolves each
+// reach `signInAnonymously` and MINT A SEPARATE ANONYMOUS ACCOUNT — the second
+// silently replaces the first, orphaning whatever the first wrote. That is
+// reachable on an ordinary cold load: the boot gate calls this, and so does the
+// auth subscription the moment it observes "no account".
+//
+// It holds an attempt only while that attempt is running, and clears itself
+// when the attempt settles. That is what makes it safe for the auth listener
+// below to leave it alone: a settled attempt is never handed to a later caller,
+// so a session that ends can never be answered with the uid it used to have,
+// and an attempt still in progress is never duplicated.
+let guestSessionInFlight: Promise<string> | null = null;
 
+function clearSession() {
+  cachedUid = null;
+}
+
+/** Snapshot of the signed-in account, for UI that renders identity. */
+export type AccountSnapshot = {
+  uid: string;
+  isAnonymous: boolean;
+  displayName: string | null;
+  email: string | null;
+  photoURL: string | null;
+};
+
+function toSnapshot(user: User): AccountSnapshot {
+  return {
+    uid: user.uid,
+    isAnonymous: user.isAnonymous,
+    displayName: user.displayName,
+    email: user.email,
+    photoURL: user.photoURL,
+  };
+}
+
+export function ensureGuestSession(): Promise<string> {
+  if (cachedUid) return Promise.resolve(cachedUid);
+  if (guestSessionInFlight) return guestSessionInFlight;
+
+  // Released as soon as it settles, success or failure. A cached failure would
+  // hand every later caller the same rejection and the app could never recover
+  // from a transient network error; a cached success would outlive the session
+  // it describes.
+  const attempt: Promise<string> = startGuestSession().finally(() => {
+    if (guestSessionInFlight === attempt) guestSessionInFlight = null;
+  });
+  guestSessionInFlight = attempt;
+
+  return attempt;
+}
+
+async function startGuestSession(): Promise<string> {
   const auth = firebaseAuth();
 
   // A persisted session is restored asynchronously, so wait for the first
@@ -136,17 +208,147 @@ export async function guestIdToken(): Promise<string | null> {
   return user ? user.getIdToken() : null;
 }
 
+/** The current account, or null before the boot gate resolves. */
+export function currentAccount(): AccountSnapshot | null {
+  const user = firebaseAuth().currentUser;
+  return user ? toSnapshot(user) : null;
+}
+
+/** Subscribes to sign-in / sign-out. Returns the unsubscribe function. */
+export function subscribeToAccount(
+  onChange: (account: AccountSnapshot | null) => void,
+): () => void {
+  return onAuthStateChanged(firebaseAuth(), (user) => {
+    // Keep the synchronous uid in step with the session. Sign-out clears it so
+    // guestUserId() throws rather than handing out a uid the token no longer
+    // proves — a stale uid would produce writes that Security Rules reject.
+    //
+    // AuthProvider re-gates the tree whenever this reports no account, so
+    // nothing is left rendering against the cleared uid.
+    if (user) {
+      cachedUid = user.uid;
+    } else {
+      clearSession();
+    }
+    onChange(user ? toSnapshot(user) : null);
+  });
+}
+
 /**
  * Human-readable label for the account menu and settings page.
  *
- * Anonymous users have no email, so the UI cannot show one. A fake address
- * would be worse than none — it looks like real data and invites someone to
- * try mailing it. The uid suffix gives the guest something stable to recognise
- * across sessions, and makes it obvious which browser they are looking at.
+ * A signed-in account shows its email. Anonymous users have none, and a fake
+ * address would be worse than none — it looks like real data and invites
+ * someone to try mailing it. The uid suffix gives the guest something stable
+ * to recognise across sessions, and makes it obvious which browser they are
+ * looking at.
  */
 export function guestUserLabel(): string {
+  const account = currentAccount();
+  if (account && !account.isAnonymous) {
+    return account.email ?? account.displayName ?? 'Signed in';
+  }
   if (!cachedUid) return 'Guest';
   return `Guest · ${cachedUid.slice(0, 6)}`;
+}
+
+// ── Google sign-in ─────────────────────────────────────────────────────────
+
+export class SignInCancelledError extends Error {}
+
+/** Errors that mean "the person closed the popup", not "something broke". */
+const CANCELLED_CODES = new Set([
+  'auth/popup-closed-by-user',
+  'auth/cancelled-popup-request',
+  'auth/user-cancelled',
+]);
+
+function authErrorCode(error: unknown): string {
+  return typeof (error as { code?: unknown })?.code === 'string'
+    ? (error as { code: string }).code
+    : '';
+}
+
+/**
+ * Signs in with Google, preserving the guest's existing work where possible.
+ *
+ * Path 1 (the common one): the visitor has been building as a guest, so the
+ * anonymous account is LINKED to the Google credential. Same uid, so all their
+ * conversations and meshes come with them.
+ *
+ * Path 2: that Google account is already a GEXUS user — linking would fuse two
+ * real accounts, which Firebase refuses (`credential-already-in-use`). We sign
+ * into the existing account instead. The guest's unsaved work stays behind
+ * under the anonymous uid; `broughtWorkAlong: false` lets the caller say so
+ * rather than leaving the person to notice an empty history by themselves.
+ */
+export async function signInWithGoogle(): Promise<{
+  account: AccountSnapshot;
+  broughtWorkAlong: boolean;
+}> {
+  const auth = firebaseAuth();
+  const provider = new GoogleAuthProvider();
+  // Always let the person choose which Google account, instead of silently
+  // reusing whichever one the browser saw last.
+  provider.setCustomParameters({ prompt: 'select_account' });
+
+  const current = auth.currentUser;
+
+  try {
+    if (current?.isAnonymous) {
+      const result = await linkWithPopup(current, provider);
+      cachedUid = result.user.uid;
+      return { account: toSnapshot(result.user), broughtWorkAlong: true };
+    }
+
+    const result = await signInWithPopup(auth, provider);
+    cachedUid = result.user.uid;
+    return { account: toSnapshot(result.user), broughtWorkAlong: true };
+  } catch (error) {
+    const code = authErrorCode(error);
+
+    if (CANCELLED_CODES.has(code)) {
+      throw new SignInCancelledError('Sign-in was cancelled.');
+    }
+
+    if (
+      code === 'auth/credential-already-in-use' ||
+      code === 'auth/email-already-in-use' ||
+      code === 'auth/account-exists-with-different-credential'
+    ) {
+      // Firebase attaches the credential it could not link to the error, so
+      // the existing account can be entered without a second popup.
+      const credential = GoogleAuthProvider.credentialFromError(
+        error as Parameters<typeof GoogleAuthProvider.credentialFromError>[0],
+      );
+      if (credential) {
+        const result = await signInWithCredential(auth, credential);
+        cachedUid = result.user.uid;
+        return { account: toSnapshot(result.user), broughtWorkAlong: false };
+      }
+      const result = await signInWithPopup(auth, provider);
+      cachedUid = result.user.uid;
+      return { account: toSnapshot(result.user), broughtWorkAlong: false };
+    }
+
+    throw error;
+  }
+}
+
+/**
+ * Signs out and immediately starts a fresh guest session.
+ *
+ * The app has no signed-out state to fall back to — every screen needs a uid to
+ * read or write anything — so leaving the session empty would just be a broken
+ * app. Starting a new guest keeps someone browsing after they sign out.
+ */
+export async function signOutAccount(): Promise<void> {
+  clearSession();
+  await signOut(firebaseAuth());
+  // The auth listener races this — it also sees the signed-out state and asks
+  // for a session. Both land on the same attempt, so exactly one replacement
+  // guest is created, whichever gets there first.
+  await ensureGuestSession();
 }
 
 // ── Firestore adapter ──────────────────────────────────────────────────────

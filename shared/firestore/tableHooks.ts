@@ -107,12 +107,43 @@ const DEFAULTS: Record<string, () => Row> = {
     privacy: 'private',
     settings: {},
   }),
-  messages: () => ({ created_at: nowIso(), rating: 0, parts: [] }),
-  images: () => ({ created_at: nowIso(), prompt: {} }),
-  meshes: () => ({ created_at: nowIso(), file_type: 'glb', prompt: {} }),
-  previews: () => ({ created_at: nowIso(), updated_at: nowIso() }),
+  messages: () => ({
+    created_at: nowIso(),
+    rating: 0,
+    parts: [],
+    metadata: {},
+  }),
+  // A missing `status` is not a harmless omission. Three separate consumers
+  // branch on it, and every one of them reads ABSENT as FINISHED:
+  //
+  //   - falWebhook.ts refuses to process a row whose status is not 'pending'
+  //     ("Mesh already uploaded"), so a mesh created without one throws away
+  //     its own completion callback and never finishes.
+  //   - useMeshData / useImageData poll only while pending, so the UI never
+  //     refreshes into the finished model.
+  //   - useGlbPreview filters previews on `status == 'success'`.
+  //
+  // These are the DEFAULT 'pending' clauses from
+  // supabase/schemas/{meshes,images,previews}.sql. Losing them in the
+  // migration is what left every generation stuck on the spinner.
+  images: () => ({ created_at: nowIso(), status: 'pending', prompt: {} }),
+  meshes: () => ({
+    created_at: nowIso(),
+    status: 'pending',
+    file_type: 'glb',
+    prompt: {},
+  }),
+  previews: () => ({
+    created_at: nowIso(),
+    updated_at: nowIso(),
+    status: 'pending',
+  }),
   prompts: () => ({ created_at: nowIso(), type: 'chat' }),
-  profiles: () => ({ created_at: nowIso() }),
+  profiles: () => ({
+    created_at: nowIso(),
+    updated_at: nowIso(),
+    notifications_enabled: false,
+  }),
 };
 
 // Tables whose `updated_at` was maintained by a Postgres BEFORE UPDATE trigger

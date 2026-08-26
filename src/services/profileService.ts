@@ -2,11 +2,70 @@ import { supabase, guestUserId } from '@/lib/db';
 import { Profile } from '@shared/types';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
-// The profiles row for the local identity. Seeded by
-// supabase/migrations/20260801000000_remove_auth.sql, so it always exists.
-//
-// The SSO display-name override is gone with authentication: the local
-// profiles row is now the only source for the name.
+/**
+ * Creates the caller's profiles row if it does not exist yet.
+ *
+ * Under Postgres this row was seeded by a migration for the one hard-coded
+ * local identity. With real accounts there is no migration to seed anything:
+ * every visitor arrives with a uid that has no row, so `useProfile` below
+ * failed permanently for everyone — which is why the greeting never showed a
+ * name and the notification preference could not be saved.
+ *
+ * The uid is used as the document id so this is idempotent: a second call
+ * merges instead of creating a duplicate row. `ignoreDuplicates` keeps an
+ * existing row's name intact, so a returning user's edited name is never
+ * overwritten by their Google display name on the next sign-in.
+ */
+export async function ensureProfile({
+  userId,
+  fullName,
+}: {
+  userId: string;
+  fullName?: string | null;
+}): Promise<void> {
+  const { error } = await supabase.from('profiles').upsert(
+    {
+      id: userId,
+      user_id: userId,
+      full_name: fullName?.trim() || 'Guest',
+    },
+    { onConflict: 'id', ignoreDuplicates: true },
+  );
+  if (error) throw error;
+}
+
+/**
+ * Updates the stored name to match the identity provider, but only when the
+ * row is still carrying the placeholder a guest was created with. Someone who
+ * renamed themselves keeps their choice.
+ */
+export async function adoptProviderName({
+  userId,
+  fullName,
+}: {
+  userId: string;
+  fullName: string | null | undefined;
+}): Promise<void> {
+  const name = fullName?.trim();
+  if (!name) return;
+
+  const { data } = await supabase
+    .from('profiles')
+    .select('*')
+    .eq('id', userId)
+    .maybeSingle();
+
+  const existing = (data as Profile | null)?.full_name?.trim();
+  if (existing && existing !== 'Guest') return;
+
+  await supabase
+    .from('profiles')
+    .update({ full_name: name, updated_at: new Date().toISOString() })
+    .eq('id', userId);
+}
+
+// The profiles row for the current account, created on demand by
+// `ensureProfile` at boot (see AuthProvider).
 export function useProfile() {
   return useQuery({
     queryKey: ['profile', guestUserId()],
@@ -15,15 +74,12 @@ export function useProfile() {
         .from('profiles')
         .select('*')
         .eq('user_id', guestUserId())
-        .single();
+        .limit(1)
+        .maybeSingle();
 
       if (error) throw error;
 
-      if (!data) {
-        throw new Error('Profile not found');
-      }
-
-      return data;
+      return (data as Profile | null) ?? null;
     },
   });
 }
