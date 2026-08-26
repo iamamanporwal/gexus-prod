@@ -23,7 +23,7 @@ import {
 import { billing, BillingClientError } from './billingClient';
 import { logApiError, logError } from './serverLog';
 import { Buffer } from 'node:buffer';
-import { env, requiredEnv, webhookBaseUrl } from './env';
+import { env, falWebhookUrl, requiredEnv, webhookBaseUrl } from './env';
 
 const MESH_TOKEN_COST = 30;
 
@@ -1074,7 +1074,7 @@ async function submitMeshJob(
 
       await fal.queue.submit('fal-ai/meshy/v6-preview/image-to-3d', {
         input: meshyInput,
-        webhookUrl: `${appBaseUrl}/cadam/api/fal-webhook?id=${meshId}`,
+        webhookUrl: falWebhookUrl(appBaseUrl, meshId),
       });
 
       debugLog('Successfully submitted to Meshy v6 Preview');
@@ -1278,7 +1278,7 @@ Output:`;
 
       await fal.queue.submit('fal-ai/sam-3/3d-objects', {
         input: sam3dInput,
-        webhookUrl: `${appBaseUrl}/cadam/api/fal-webhook?id=${meshId}`,
+        webhookUrl: falWebhookUrl(appBaseUrl, meshId),
       });
 
       debugLog('Successfully submitted to SAM 3D');
@@ -1315,7 +1315,7 @@ Output:`;
       try {
         await fal.queue.submit('tripo3d/tripo/v2.5/image-to-3d', {
           input: tripoInput,
-          webhookUrl: `${appBaseUrl}/cadam/api/fal-webhook?id=${meshId}`,
+          webhookUrl: falWebhookUrl(appBaseUrl, meshId),
         });
         debugLog(
           'Successfully submitted to Tripo v2.5 textureless with conversational context',
@@ -1538,7 +1538,7 @@ async function submitPreviewJob(
       input: {
         input_image_url: imageInputs[0],
       },
-      webhookUrl: `${appBaseUrl}/cadam/api/fal-webhook?id=${previewId}&mode=preview`,
+      webhookUrl: falWebhookUrl(appBaseUrl, previewId, 'preview'),
     });
   } catch (error) {
     logApiError(error, {
@@ -1593,7 +1593,7 @@ async function createHunyuanPreview(
         input: {
           input_image_url: imageUrl,
         },
-        webhookUrl: `${appBaseUrl}/cadam/api/fal-webhook?id=${previewData.id}&mode=preview`,
+        webhookUrl: falWebhookUrl(appBaseUrl, previewData.id, 'preview'),
       });
       debugLog(`Successfully submitted ${description} to Hunyuan3D Mini Turbo`);
     }
