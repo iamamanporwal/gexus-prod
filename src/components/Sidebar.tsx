@@ -1,6 +1,14 @@
 import { useState } from 'react';
 import { Link, useNavigate } from '@tanstack/react-router';
-import { Menu, Plus, Crown, Settings, LayoutGrid } from 'lucide-react';
+import {
+  Menu,
+  Plus,
+  Crown,
+  Settings,
+  LayoutGrid,
+  LogIn,
+  LogOut,
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Tooltip,
@@ -33,6 +41,7 @@ import { cn, publicPath } from '@/lib/utils';
 import { Conversation, ConversationSettings } from '@shared/types';
 import { UserAvatar } from '@/components/chat/UserAvatar';
 import { useProfile } from '@/services/profileService';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface SidebarProps {
   isSidebarOpen: boolean;
@@ -45,6 +54,12 @@ function DesktopSidebar({ isSidebarOpen, setIsSidebarOpen }: SidebarProps) {
   const navigate = useNavigate();
   const isMobile = useIsMobile();
   const { data: profile } = useProfile();
+  const { isSignedIn, displayName, requestSignIn, signOut } = useAuth();
+
+  // The provider's name wins over the stored one while signed in: someone who
+  // just signed in should see their own name immediately, without waiting for
+  // the profile query to refetch.
+  const accountName = isSignedIn ? displayName : profile?.full_name || 'Guest';
 
   // Get 10 most recent conversations
   const { data: recentConversations } = useQuery<Conversation[]>({
@@ -77,11 +92,11 @@ function DesktopSidebar({ isSidebarOpen, setIsSidebarOpen }: SidebarProps) {
       return (
         <div className="flex cursor-pointer items-center space-x-3 rounded-md px-2 py-1.5 transition-colors hover:bg-accent-foreground">
           <UserAvatar />
-          <div className="flex flex-col">
-            <span className="text-sm font-medium text-adam-text-primary">
-              {profile?.full_name || 'User'}
+          <div className="flex min-w-0 flex-col">
+            <span className="truncate text-sm font-medium text-adam-text-primary">
+              {accountName}
             </span>
-            <span className="text-xs text-adam-text-tertiary dark:text-gray-400">
+            <span className="truncate text-xs text-adam-text-tertiary dark:text-gray-400">
               {guestUserLabel()}
             </span>
           </div>
@@ -351,16 +366,33 @@ function DesktopSidebar({ isSidebarOpen, setIsSidebarOpen }: SidebarProps) {
                 side={isMobile ? 'top' : 'right'}
               >
                 <div className="flex items-center space-x-2 p-2">
-                  <div className="flex flex-col space-y-1">
-                    <p className="text-sm font-medium text-adam-text-primary">
-                      {profile?.full_name || 'User'}
+                  <div className="flex min-w-0 flex-col space-y-1">
+                    <p className="truncate text-sm font-medium text-adam-text-primary">
+                      {accountName}
                     </p>
-                    <p className="text-xs text-muted-foreground">
+                    <p className="truncate text-xs text-muted-foreground">
                       {guestUserLabel()}
                     </p>
                   </div>
                 </div>
                 <DropdownMenuSeparator />
+                {/* Signing in is the first thing a guest should see here — it
+                    is the only item that changes what the rest of the menu can
+                    do. */}
+                {!isSignedIn && (
+                  <>
+                    <DropdownMenuGroup className="text-adam-text-primary">
+                      <DropdownMenuItem
+                        onSelect={() => requestSignIn('save')}
+                        className="flex items-center"
+                      >
+                        <LogIn className="mr-2 h-4 w-4" />
+                        <span>Sign in</span>
+                      </DropdownMenuItem>
+                    </DropdownMenuGroup>
+                    <DropdownMenuSeparator />
+                  </>
+                )}
                 <DropdownMenuGroup className="text-adam-text-primary">
                   <DropdownMenuItem asChild>
                     <Link to="/settings" className="flex items-center">
@@ -380,6 +412,20 @@ function DesktopSidebar({ isSidebarOpen, setIsSidebarOpen }: SidebarProps) {
                     </a>
                   </DropdownMenuItem>
                 </DropdownMenuGroup>
+                {isSignedIn && (
+                  <>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuGroup className="text-adam-text-primary">
+                      <DropdownMenuItem
+                        onSelect={() => void signOut()}
+                        className="flex items-center"
+                      >
+                        <LogOut className="mr-2 h-4 w-4" />
+                        <span>Sign out</span>
+                      </DropdownMenuItem>
+                    </DropdownMenuGroup>
+                  </>
+                )}
               </DropdownMenuContent>
             </DropdownMenu>
           </div>

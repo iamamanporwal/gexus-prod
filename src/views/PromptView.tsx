@@ -32,10 +32,13 @@ import { createAndCacheAiChat } from '@/hooks/useCachedAiChat';
 import type { AppUIMessage } from '@shared/chatAi';
 import { ensureInputRecords } from '@/lib/aiMessages';
 import { persistUserMessage } from '@/services/messageService';
+import { useAuth } from '@/contexts/AuthContext';
+import { REQUIRE_SIGN_IN_TO_GENERATE } from '@/config/access';
 
 export function PromptView() {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { requireSignIn } = useAuth();
   const { billing, isBillingLoading } = useBilling();
   const totalTokens = billing?.tokens.total ?? 0;
   const { data: profile, isLoading: isProfileLoading } = useProfile();
@@ -119,7 +122,7 @@ export function PromptView() {
     }
   }, []); // Empty dependency array means it only calculates once per page load
 
-  const { mutate: handleGenerate, isPending: isGenerating } = useMutation({
+  const { mutate: runGenerate, isPending: isGenerating } = useMutation({
     mutationFn: async (parts: AppUIMessage['parts']) => {
       const conversationId = draftConversationId;
 
@@ -231,6 +234,13 @@ export function PromptView() {
       });
     },
   });
+
+  // Guests generate freely by default — see src/config/access.ts for why, and
+  // for the single constant that moves the wall in front of this instead.
+  const handleGenerate = (parts: AppUIMessage['parts']) => {
+    if (REQUIRE_SIGN_IN_TO_GENERATE && !requireSignIn('prompt')) return;
+    runGenerate(parts);
+  };
 
   return (
     <div

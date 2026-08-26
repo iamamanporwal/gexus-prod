@@ -1,14 +1,20 @@
-import { ChatTitle } from '@/components/chat/ChatTitle';
 import { MessageBubble } from '@/components/chat/MessageBubble';
 import { ParameterSection } from '@/components/parameter/ParameterSection';
 import { ParameterSheetContent } from '@/components/parameter/ParameterSheetContent';
+import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { MeshPreview } from '@/components/viewer/MeshPreview';
 import { OpenSCADPreview } from '@/components/viewer/OpenSCADViewer';
+import { ShareHeader } from '@/components/share/ShareHeader';
+import { SharePromptBar } from '@/components/share/SharePromptBar';
 import { ConversationContext } from '@/contexts/ConversationContext';
-import { messageRowToChatMessage } from '@/lib/aiMessages';
+import { useAuth } from '@/contexts/AuthContext';
+import { useToast } from '@/hooks/use-toast';
+import { messageRowToChatMessage, type ChatMessage } from '@/lib/aiMessages';
 import { supabase } from '@/lib/db';
-import { updateParameter } from '@/lib/utils';
+import { errorMessage } from '@/lib/errorMessage';
+import { publicPath, updateParameter } from '@/lib/utils';
+import { useForkConversation } from '@/services/conversationService';
 import parseParameters from '@shared/parseParameters';
 import type { AppUIMessage } from '@shared/chatAi';
 import { isParametricArtifact } from '@shared/parametricParts';
@@ -20,7 +26,7 @@ import type {
   ParametricArtifact,
 } from '@shared/types';
 import { useQuery } from '@tanstack/react-query';
-import { useParams } from '@tanstack/react-router';
+import { Link, useNavigate, useParams } from '@tanstack/react-router';
 import { Loader2 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ConversationView } from './ConversationView';
@@ -42,7 +48,7 @@ type ActivePreview =
  * memory.
  */
 export default function ShareView() {
-  const { id: conversationId } = useParams({ from: '/_layout/share/$id' });
+  const { id: conversationId } = useParams({ from: '/share/$id' });
 
   const { data: conversation, isLoading: isConversationLoading } = useQuery({
     queryKey: ['conversation', conversationId],
@@ -54,7 +60,10 @@ export default function ShareView() {
         .select('*')
         .eq('id', conversationId)
         .limit(1)
-        .single()
+        // maybeSingle, not single: a link to a conversation that was made
+        // private again, or deleted, is a normal thing to receive. It should
+        // render the "not shared" state below, not throw.
+        .maybeSingle()
         .overrideTypes<Conversation>();
       if (error) throw error;
       return data;
@@ -84,19 +93,42 @@ export default function ShareView() {
     );
   }
 
-  if (!conversation) {
-    return (
-      <div className="flex h-full w-full flex-col items-center justify-center bg-adam-bg-secondary-dark text-adam-text-primary">
-        <span className="text-2xl font-medium">404</span>
-        <span className="text-sm">Conversation not found</span>
-      </div>
-    );
-  }
+  if (!conversation) return <ShareUnavailable />;
 
   return (
     <ConversationContext.Provider value={{ conversation }}>
       <ConversationShare conversation={conversation} messages={messages} />
     </ConversationContext.Provider>
+  );
+}
+
+/**
+ * Shown when the link resolves to nothing readable — deleted, or switched back
+ * to private. Deliberately not a bare 404: the person arrived from a link
+ * someone sent them, so the page explains what happened and still offers the
+ * product rather than dead-ending.
+ */
+function ShareUnavailable() {
+  return (
+    <div className="flex min-h-dvh w-full flex-col items-center justify-center gap-6 bg-adam-bg-secondary-dark px-6 text-center text-adam-text-primary">
+      <img
+        src={publicPath('cadam-logo.svg')}
+        alt="GEXUS"
+        className="h-7 w-auto opacity-80"
+      />
+      <div className="flex flex-col gap-2">
+        <h1 className="text-xl font-medium">This model isn&apos;t shared</h1>
+        <p className="max-w-sm text-sm text-adam-text-secondary">
+          The link may have been turned off by its owner, or the model was
+          deleted.
+        </p>
+      </div>
+      <Link to="/">
+        <Button variant="light" className="h-10 px-5">
+          Build your own
+        </Button>
+      </Link>
+    </div>
   );
 }
 
@@ -106,6 +138,83 @@ interface ConversationShareProps {
 }
 
 function ConversationShare({ conversation, messages }: ConversationShareProps) {
+  const navigate = useNavigate();
+  const { toast } = useToast();
+  const { isSignedIn, requestSignIn } = useAuth();
+  const { mutate: fork, isPending: isForking } = useForkConversation();
+
+  // A prompt typed on the share page before signing in. Held so it is not lost
+  // across the sign-in popup: the person gets remixed straight into the editor
+  // afterwards, rather than being dropped somewhere and having to retype.
+  const pendingPromptRef = useRef<string>('');
+
+  const remix = useCallback(
+    (prompt: string) => {
+      fork(conversation.id, {
+        onSuccess: (result) => {
+          toast({
+            title: 'Copied to your workspace',
+            description: 'Edit freely — the original is untouched.',
+          });
+          navigate({
+            to: '/editor/$id',
+            params: { id: result.conversationId },
+            // The typed prompt travels in the URL rather than in memory so it
+            // survives the full page load the editor route performs.
+            search: prompt ? { prompt } : {},
+          });
+        },
+        onError: (error) => {
+          toast({
+            title: 'Could not remix',
+            description: errorMessage(
+              error,
+              'Something went wrong copying this model.',
+            ),
+            variant: 'destructive',
+          });
+        },
+      });
+    },
+    [conversation.id, fork, navigate, toast],
+  );
+
+  // The gate. Everything that would CHANGE something routes through here;
+  // looking, rotating the model and flipping branches never does.
+  const requireAccount = useCallback(
+    (reason: 'edit' | 'prompt' | 'remix', prompt = '') => {
+      if (isSignedIn) return true;
+      pendingPromptRef.current = prompt;
+      requestSignIn(reason);
+      return false;
+    },
+    [isSignedIn, requestSignIn],
+  );
+
+  // Once they come back signed in, finish what they started.
+  const wasSignedInRef = useRef(isSignedIn);
+  useEffect(() => {
+    if (wasSignedInRef.current === isSignedIn) return;
+    wasSignedInRef.current = isSignedIn;
+    if (!isSignedIn) return;
+    const prompt = pendingPromptRef.current;
+    pendingPromptRef.current = '';
+    remix(prompt);
+  }, [isSignedIn, remix]);
+
+  const handleRemixClick = useCallback(() => {
+    if (!requireAccount('remix')) return;
+    remix('');
+  }, [requireAccount, remix]);
+
+  const handlePromptSubmit = useCallback(
+    (prompt: string) => {
+      if (!requireAccount('prompt', prompt)) return;
+      remix(prompt);
+    },
+    [requireAccount, remix],
+  );
+
   // Local leaf — the share viewer can flip between branches without
   // touching `conversations.current_message_leaf_id` in the DB.
   const [localLeafId, setLocalLeafId] = useState<string>(
@@ -213,6 +322,78 @@ function ConversationShare({ conversation, messages }: ConversationShareProps) {
   const hasArtifact =
     activePreview?.type === 'artifact' && parameters.length > 0;
 
+  // Parameter sliders stay live for a visitor: exploring "what does this look
+  // like 20mm taller" is exactly the inspection a share link should allow, and
+  // the change is in-memory only — nothing here writes to the owner's model.
+  // The gate is on keeping a change, not on trying one.
+
+  return (
+    <div className="flex h-dvh w-full flex-col overflow-hidden bg-adam-bg-secondary-dark">
+      <ShareHeader
+        title={conversation.title}
+        isRemixing={isForking}
+        onRemix={handleRemixClick}
+      />
+      <div className="min-h-0 flex-1">
+        <ShareBody
+          hasArtifact={hasArtifact}
+          conversation={conversation}
+          activePreview={activePreview}
+          parameters={parameters}
+          currentOutput={currentOutput}
+          setCurrentOutput={setCurrentOutput}
+          mobilePreviewVersion={mobilePreviewVersion}
+          branch={branch}
+          onSelectLeaf={setLocalLeafId}
+          onViewArtifact={handleViewArtifact}
+          onViewMesh={handleViewMesh}
+          changeParameters={changeParameters}
+          isSignedIn={isSignedIn}
+          isForking={isForking}
+          onPromptSubmit={handlePromptSubmit}
+          onBlockedInteraction={() => requireAccount('prompt')}
+        />
+      </div>
+    </div>
+  );
+}
+
+type ShareBodyProps = {
+  hasArtifact: boolean;
+  conversation: Conversation;
+  activePreview: ActivePreview;
+  parameters: Parameter[];
+  currentOutput: Blob | undefined;
+  setCurrentOutput: (output: Blob | undefined) => void;
+  mobilePreviewVersion: number;
+  branch: ReturnType<Tree<ChatMessage>['getPath']>;
+  onSelectLeaf: (id: string) => void;
+  onViewArtifact: (artifact: ParametricArtifact, messageId: string) => void;
+  onViewMesh: (meshId: string, messageId: string) => void;
+  changeParameters: (parameters: Parameter[]) => void;
+  isSignedIn: boolean;
+  isForking: boolean;
+  onPromptSubmit: (prompt: string) => void;
+  onBlockedInteraction: () => void;
+};
+
+function ShareBody({
+  hasArtifact,
+  activePreview,
+  parameters,
+  currentOutput,
+  setCurrentOutput,
+  mobilePreviewVersion,
+  branch,
+  onSelectLeaf,
+  onViewArtifact,
+  onViewMesh,
+  changeParameters,
+  isSignedIn,
+  isForking,
+  onPromptSubmit,
+  onBlockedInteraction,
+}: ShareBodyProps) {
   return (
     <ConversationView
       hasParameters={hasArtifact}
@@ -226,23 +407,6 @@ function ConversationShare({ conversation, messages }: ConversationShareProps) {
       mobilePreviewVersion={mobilePreviewVersion}
       chatPanelSlot={
         <>
-          <div className="flex w-full items-center justify-between bg-transparent p-3 md:pl-12">
-            <div className="min-w-0 flex-1">
-              <ChatTitle
-                activeMeshId={
-                  activePreview?.type === 'mesh'
-                    ? activePreview.meshId
-                    : undefined
-                }
-                activeOpenscadCode={
-                  activePreview?.type === 'artifact'
-                    ? activePreview.artifact.code
-                    : undefined
-                }
-              />
-            </div>
-          </div>
-
           <ScrollArea className="relative w-full max-w-none flex-1 self-center px-3 py-0 md:min-h-0 md:p-4">
             <div className="pointer-events-none sticky left-0 top-0 z-50 h-3 bg-gradient-to-b from-adam-bg-secondary-dark/90 to-transparent md:hidden" />
             <div className="mx-auto flex max-w-3xl flex-col gap-4 pb-6 md:pb-0">
@@ -251,15 +415,22 @@ function ConversationShare({ conversation, messages }: ConversationShareProps) {
                   key={node.id}
                   message={node}
                   isLoading={false}
-                  onSelectLeaf={setLocalLeafId}
+                  onSelectLeaf={onSelectLeaf}
                   onViewArtifact={(artifact) =>
-                    handleViewArtifact(artifact, node.id)
+                    onViewArtifact(artifact, node.id)
                   }
-                  onViewMesh={(meshId) => handleViewMesh(meshId, node.id)}
+                  onViewMesh={(meshId) => onViewMesh(meshId, node.id)}
                 />
               ))}
             </div>
           </ScrollArea>
+
+          <SharePromptBar
+            isSignedIn={isSignedIn}
+            isPending={isForking}
+            onSubmit={onPromptSubmit}
+            onBlockedInteraction={onBlockedInteraction}
+          />
         </>
       }
       previewSlot={

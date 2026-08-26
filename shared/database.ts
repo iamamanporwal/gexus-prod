@@ -45,6 +45,12 @@ export type Database = {
           type: Database['public']['Enums']['conversation-type'];
           updated_at: string | null;
           user_id: string;
+          // Provenance for a remixed conversation (see
+          // src/server/forkConversation.ts). Absent on anything created
+          // directly, which is why both are optional rather than nullable
+          // columns — Firestore simply omits the fields.
+          forked_from_conversation_id?: string | null;
+          forked_from_user_id?: string | null;
         };
         Insert: {
           created_at?: string | null;
@@ -56,6 +62,8 @@ export type Database = {
           type?: Database['public']['Enums']['conversation-type'];
           updated_at?: string | null;
           user_id: string;
+          forked_from_conversation_id?: string | null;
+          forked_from_user_id?: string | null;
         };
         Update: {
           created_at?: string | null;
@@ -67,6 +75,8 @@ export type Database = {
           type?: Database['public']['Enums']['conversation-type'];
           updated_at?: string | null;
           user_id?: string;
+          forked_from_conversation_id?: string | null;
+          forked_from_user_id?: string | null;
         };
         Relationships: [];
       };

@@ -18,11 +18,19 @@ rules_version = '2';
 // `(storage.foldername(name))[1] = auth.uid()`, which is why no upload paths
 // had to change.
 //
-// Note the asymmetry with Firestore: Storage rules cannot cheaply consult a
-// conversation's `privacy` field, so shared-link *images* are not public here.
-// A shared conversation renders its text and geometry; its stored image assets
-// will 403 for a non-owner. Making those public means either a signed URL
-// minted server-side (the server bypasses these rules) or a `public/` prefix.
+// Note the asymmetry with Firestore: Storage rules cannot consult a
+// conversation's `privacy` field at all, so a shared link's *bytes* — the GLBs
+// and the images — are not readable here by anyone but their owner, even when
+// the conversation is public. That is deliberate and stays that way: opening
+// these paths wider is how every private model becomes readable by every
+// signed-in guest.
+//
+// Public sharing is served instead by /api/public-asset
+// (src/server/publicAsset.ts), which runs with admin credentials, checks
+// `privacy == 'public'` against the conversation document, and streams only
+// the objects under that conversation's own prefix. Revocation is immediate:
+// flip privacy back and the next request 404s. The client picks the path by
+// ownership in src/lib/conversationAssets.ts.
 //
 // Every block below spells out `create, update` and `delete` separately rather
 // than using `write`. That is deliberate, and it is load-bearing: on a delete

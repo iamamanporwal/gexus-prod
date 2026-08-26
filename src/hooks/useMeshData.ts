@@ -1,5 +1,6 @@
 import { useConversation } from '@/contexts/ConversationContext';
 import { supabase } from '@/lib/db';
+import { downloadConversationAsset } from '@/lib/conversationAssets';
 import { MeshData } from '@shared/types';
 import { useQuery } from '@tanstack/react-query';
 
@@ -40,17 +41,14 @@ export const useMeshData = ({ id }: { id: string }) => {
       dataQuery.data.status === 'success',
     queryFn: async () => {
       const fileExtension = dataQuery.data?.file_type || 'glb';
-      const { data, error } = await supabase.storage
-        .from('meshes')
-        .download(
-          `${conversation.user_id}/${conversation.id}/${id}.${fileExtension}`,
-        );
-
-      if (error) {
-        throw error;
-      }
-
-      return data;
+      // Owner reads storage directly; a share-link viewer goes through the
+      // public proxy, which is the only path Storage rules permit them.
+      return downloadConversationAsset({
+        ownerId: conversation.user_id,
+        conversationId: conversation.id,
+        kind: 'meshes',
+        file: `${id}.${fileExtension}`,
+      });
     },
     refetchOnMount: false,
   });

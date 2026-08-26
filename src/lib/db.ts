@@ -33,5 +33,11 @@ export {
   ensureGuestSession,
   guestUserId,
   guestIdToken,
+  currentAccount,
+  subscribeToAccount,
+  signInWithGoogle,
+  signOutAccount,
+  SignInCancelledError,
+  type AccountSnapshot,
   isFirebaseConfigMissing as isSupabaseConfigMissing,
 } from './firebaseClient';

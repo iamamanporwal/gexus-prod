@@ -7,7 +7,7 @@ import { MeshFilesProvider } from '@/contexts/MeshFilesContext';
 import { PostHogProvider } from '@/contexts/PostHogProvider';
 import { ErrorView } from '@/views/ErrorView';
 import { isSupabaseConfigMissing } from '@/lib/db';
-import { GuestSessionGate } from '@/components/GuestSessionGate';
+import { AuthProvider } from '@/components/auth/AuthProvider';
 
 const queryClient = new QueryClient();
 
@@ -29,11 +29,15 @@ function App({ error }: { error?: unknown }) {
 
   return (
     <QueryClientProvider client={queryClient}>
-      {/* Inside QueryClientProvider (some children use react-query) but outside
+      {/* Inside QueryClientProvider (some children use react-query, and the
+          provider itself clears caches on account change) but outside
           everything that reads the uid. MeshRealtimeProvider calls
           guestUserId() in an effect, so it must not mount before the session
-          resolves. */}
-      <GuestSessionGate>
+          resolves.
+
+          Toaster sits INSIDE AuthProvider: sign-in confirmation is raised as a
+          toast, so the surface that renders toasts has to be mounted by then. */}
+      <AuthProvider>
         <MeshRealtimeProvider>
           <PostHogProvider>
             <MeshFilesProvider>
@@ -44,7 +48,7 @@ function App({ error }: { error?: unknown }) {
             </MeshFilesProvider>
           </PostHogProvider>
         </MeshRealtimeProvider>
-      </GuestSessionGate>
+      </AuthProvider>
     </QueryClientProvider>
   );
 }

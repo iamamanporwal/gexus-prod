@@ -52,7 +52,7 @@ import type {
   ParametricArtifact,
 } from '@shared/types';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useNavigate, useParams } from '@tanstack/react-router';
+import { useNavigate, useParams, useSearch } from '@tanstack/react-router';
 import { Loader2, Share } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { MessageItem } from '../types/misc.ts';
@@ -191,6 +191,19 @@ function ConversationEditor() {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const totalTokens = billing?.tokens.total ?? 0;
+
+  // A prompt handed over from another page (the share page's prompt bar, after
+  // a remix). Stripped from the URL the moment it is sent, so a refresh or a
+  // shared editor URL never re-fires it.
+  const { prompt: initialPrompt } = useSearch({ from: '/_layout/editor/$id' });
+  const clearInitialPrompt = useCallback(() => {
+    void navigate({
+      to: '/editor/$id',
+      params: { id: conversation.id },
+      search: {},
+      replace: true,
+    });
+  }, [conversation.id, navigate]);
 
   // ── Per-conversation UI state ───────────────────────────────────────────
   const [model, setModel] = useState<Model>(
@@ -734,6 +747,8 @@ function ConversationEditor() {
             onViewArtifact={handleViewArtifact}
             onViewMesh={handleViewMesh}
             onLoadingChange={setIsChatStreaming}
+            initialPrompt={initialPrompt}
+            onInitialPromptSent={clearInitialPrompt}
           />
         </>
       }
