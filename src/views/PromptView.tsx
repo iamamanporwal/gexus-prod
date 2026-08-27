@@ -235,8 +235,9 @@ export function PromptView() {
     },
   });
 
-  // Guests generate freely by default — see src/config/access.ts for why, and
-  // for the single constant that moves the wall in front of this instead.
+  // Backstop. The composer gates first (TextAreaChat.handleSubmit), which is
+  // the check that actually preserves the draft behind the dialog; this one
+  // covers sends that do not originate there. See src/config/access.ts.
   const handleGenerate = (parts: AppUIMessage['parts']) => {
     if (REQUIRE_SIGN_IN_TO_GENERATE && !requireSignIn('prompt')) return;
     runGenerate(parts);

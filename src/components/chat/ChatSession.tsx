@@ -825,8 +825,8 @@ export function ChatSession({
   // ───────────────────────────────────────────────────────────────────────
   const handleSend = useCallback(
     async (parts: AppUIMessage['parts']) => {
-      // Guests send freely by default — see src/config/access.ts for the one
-      // constant that puts the sign-in wall here instead.
+      // Backstop. The composer gates first (TextAreaChat.handleSubmit); this
+      // covers sends that do not come from it. See src/config/access.ts.
       if (REQUIRE_SIGN_IN_TO_GENERATE && !requireSignIn('prompt')) return;
 
       const text = parts

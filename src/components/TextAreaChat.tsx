@@ -35,6 +35,8 @@ import {
 } from '@/constants/meshConstants';
 import { MessageItem } from '../types/misc.ts';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/contexts/AuthContext';
+import { REQUIRE_SIGN_IN_TO_GENERATE } from '@/config/access';
 import {
   Tooltip,
   TooltipContent,
@@ -487,6 +489,7 @@ function TextAreaChat({
     useState('');
   const prevIsDraggingRef = useRef(isDragging);
   const { toast } = useToast();
+  const { requireSignIn, isSignedIn, account } = useAuth();
   const { images, mesh, setImages, setMesh } = useItemSelection();
   const meshFiles = useMeshFiles();
   const creativeModel =
@@ -733,6 +736,49 @@ function TextAreaChat({
     }
   }, [images, setModel, model, type]);
 
+  // A submit the wall intercepted, waiting for the person to come back.
+  const pendingSubmitRef = useRef(false);
+  const uidAtGateRef = useRef<string | null>(null);
+
+  // handleSubmit closes over a dozen pieces of state and is rebuilt every
+  // render, so the resume effect below reads it through a ref rather than
+  // taking it as a dependency and re-running on every keystroke.
+  const handleSubmitRef = useRef<() => void>(() => {});
+  useEffect(() => {
+    handleSubmitRef.current = () => void handleSubmit();
+  });
+
+  // Finish what they started. Declared after the ref effect above so it sees
+  // the current handleSubmit on the render where the session changes.
+  const wasSignedInRef = useRef(isSignedIn);
+  useEffect(() => {
+    if (wasSignedInRef.current === isSignedIn) return;
+    wasSignedInRef.current = isSignedIn;
+    if (!isSignedIn || !pendingSubmitRef.current) return;
+    pendingSubmitRef.current = false;
+
+    // Linking an anonymous account to Google keeps the uid, so images uploaded
+    // as a guest are still readable and the draft can go out as-is. Signing
+    // into a Google account that ALREADY existed switches the uid instead, and
+    // those objects stay stranded under the old one — rebuilding their paths
+    // against the new uid would send a message full of images that resolve to
+    // nothing. Drop the attachments and stop; the text stays in the box, and
+    // AuthProvider has already said out loud that guest work stayed behind.
+    if (
+      uidAtGateRef.current &&
+      account &&
+      uidAtGateRef.current !== account.uid
+    ) {
+      setImages([]);
+      return;
+    }
+
+    // Rebuilt from current state rather than replayed from parts captured at
+    // the gate, so the uid in every image path is the one that is live now and
+    // any edit made while the dialog was open is included.
+    handleSubmitRef.current();
+  }, [isSignedIn, account, setImages]);
+
   const handleSubmit = async () => {
     const hasNoInput = images.length === 0 && !input?.trim() && !mesh;
     const hasUploadingImages = images.some((img) => img.isUploading);
@@ -740,6 +786,24 @@ function TextAreaChat({
     if (hasNoInput || isLoading || hasUploadingImages) {
       return;
     }
+
+    // The sign-in wall (src/config/access.ts). Deliberately AFTER the checks
+    // above: an empty box or a half-finished upload is not an attempt to
+    // generate, and opening the dialog for one would ambush someone who hit
+    // send by accident.
+    //
+    // Nothing is cleared on this path — the clears at the bottom of this
+    // function are never reached — so the draft and its attachments sit
+    // untouched behind the popup. That matters more than it looks: this is the
+    // one moment a visitor has shown real intent, and wiping what they wrote
+    // while asking them to sign up would throw away the exact thing the wall
+    // is here to convert.
+    if (REQUIRE_SIGN_IN_TO_GENERATE && !requireSignIn('prompt')) {
+      uidAtGateRef.current = account?.uid ?? null;
+      pendingSubmitRef.current = true;
+      return;
+    }
+
     const text = input.trim();
     const parts: AppUIMessage['parts'] = [];
 
