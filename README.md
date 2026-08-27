@@ -1,33 +1,15 @@
-<div align="center">
-  <a href="https://adam.new/cadam">
-    <img src="./public/cadam-launch.gif" alt="CADAM — text-to-CAD live demo" width="100%">
-  </a>
-</div>
-
-<div align="center">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="./public/Github-Banner-Dark.png">
-    <source media="(prefers-color-scheme: light)" srcset="./public/Github-Banner-Light.png">
-    <img src="./public/Github-Banner-Light.png" alt="CADAM Banner" width="100%"/>
-  </picture>
-</div>
-
-<h1 align="center"> ⛮ The Open Source Text to CAD Web App ⛮ </h1>
+<h1 align="center"> ⛮ GEXUS — Text to CAD in the Browser ⛮ </h1>
 
 <div align="center">
 
-[![Stars](https://img.shields.io/github/stars/Adam-CAD/cadam?style=social&logo=github)](https://github.com/Adam-CAD/cadam/stargazers)
-[![Forks](https://img.shields.io/github/forks/Adam-CAD/CADAM?style=flat)](https://github.com/Adam-CAD/CADAM/network)
+[![Stars](https://img.shields.io/github/stars/iamamanporwal/gexus-prod?style=social&logo=github)](https://github.com/iamamanporwal/gexus-prod/stargazers)
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg?style=flat)](https://www.gnu.org/licenses/gpl-3.0)
 [![Node.js](https://img.shields.io/badge/Node.js-20.19%2B%20%7C%2022.12%2B-green.svg?style=flat&logo=node.js&logoColor=white)](https://nodejs.org/)
 [![React](https://img.shields.io/badge/React-19.1-61DAFB.svg?style=flat&logo=react&logoColor=black)](https://reactjs.org/)
 [![Supabase](https://img.shields.io/badge/Supabase-Backend-3ECF8E.svg?style=flat&logo=supabase&logoColor=white)](https://supabase.com/)
 [![OpenSCAD](https://img.shields.io/badge/OpenSCAD-WASM-F9D64F.svg?style=flat)](https://openscad.org/)
-[![Website](https://img.shields.io/badge/website-adam.new-blue?style=flat)](https://adam.new)
+[![Website](https://img.shields.io/badge/website-app.gexus.co-blue?style=flat)](https://app.gexus.co)
 [![Discord](https://img.shields.io/badge/Discord-Join-5865F2?style=flat&logo=discord&logoColor=white)](https://discord.com/invite/TTWcRfvM9z)
-[![Follow Zach Dive](https://img.shields.io/badge/Follow-Zach%20Dive-1DA1F2?style=flat&logo=x&logoColor=white)](https://x.com/zachdive)
-[![Follow Aaron Li](https://img.shields.io/badge/Follow-Aaron%20Li-1DA1F2?style=flat&logo=x&logoColor=white)](https://x.com/aaronhetengli)
-[![Follow Dylan Anderson](https://img.shields.io/badge/Follow-tsadpbb-1DA1F2?style=flat&logo=x&logoColor=white)](https://x.com/tsadpbb)
 
 </div>
 
@@ -35,7 +17,9 @@
 
 ## 🌐 Try it live
 
-**👉 [adam.new/cadam](https://adam.new/cadam)**. Generate a CAD model in seconds, right in your browser. No install required.
+**👉 [app.gexus.co](https://app.gexus.co)**. Generate a CAD model in seconds, right in your browser. No install required.
+
+> GEXUS is a fork of [Adam-CAD/CADAM](https://github.com/Adam-CAD/CADAM), released under the GPLv3. Credit for the original work belongs to that project; GEXUS is not affiliated with or endorsed by it.
 
 ## ✨ Features
 

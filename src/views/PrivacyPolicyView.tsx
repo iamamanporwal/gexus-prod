@@ -27,11 +27,11 @@ export function PrivacyPolicyView() {
                   Overview
                 </h2>
                 <p className="text-gray-400">
-                  This Privacy Policy describes how AdamCAD ("we," "our," or
-                  "us") collects, uses, and shares information about you when
-                  you use our website and services. By using AdamCAD, you agree
-                  to the collection and use of information in accordance with
-                  this policy.
+                  This Privacy Policy describes how GEXUS ("we," "our," or "us")
+                  collects, uses, and shares information about you when you use
+                  our website and services. By using GEXUS, you agree to the
+                  collection and use of information in accordance with this
+                  policy.
                 </p>
               </section>
 
@@ -45,7 +45,7 @@ export function PrivacyPolicyView() {
                       Information You Provide
                     </h3>
                     <p className="mb-2 text-gray-400">
-                      When you register for and use AdamCAD, we collect
+                      When you register for and use GEXUS, we collect
                       information that you provide directly to us, including:
                     </p>
                     <ul className="ml-4 list-inside list-disc text-gray-400">
@@ -90,8 +90,8 @@ export function PrivacyPolicyView() {
                   contact us at:
                 </p>
                 <div className="mt-2 text-gray-400">
-                  <p>AdamCAD</p>
-                  <p>Email: hello@adamcad.com</p>
+                  <p>GEXUS</p>
+                  <p>Email: [CONTACT EMAIL — TO BE SET BEFORE LAUNCH]</p>
                 </div>
               </section>
             </div>

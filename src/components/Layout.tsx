@@ -3,7 +3,6 @@ import { Outlet, useLocation } from '@tanstack/react-router';
 import { PanelLeft } from 'lucide-react';
 
 import { Sidebar } from './Sidebar';
-import { CreditsButton } from './CreditsButton';
 import { Button } from '@/components/ui/button';
 import { useIsMobile } from '@/hooks/useIsMobile';
 import { LayoutContext } from '@/contexts/LayoutContext';
@@ -51,9 +50,7 @@ export function Layout() {
                   ? 'right-[2.25rem] top-[2.25rem]'
                   : 'right-3.5 top-3.5'
               }`}
-            >
-              <CreditsButton />
-            </div>
+            ></div>
           )}
           {/* Toggle Sidebar Button - Positioned on main content area */}
           {!isMobile && (

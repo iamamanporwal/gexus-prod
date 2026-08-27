@@ -2,7 +2,6 @@ import { getLevel } from '@/lib/billing';
 import { useBilling } from '@/hooks/useBilling';
 import { Link } from '@tanstack/react-router';
 import { TrialDialog } from './billing/TrialDialog';
-import { BILLING_UPGRADE_URL } from '@/config/billing';
 import { useState, useEffect } from 'react';
 
 const TRIAL_DIALOG_SHOWN_KEY = 'adam_trial_dialog_shown';
@@ -57,19 +56,10 @@ function LimitReachedSpan({ onTrialClick }: { onTrialClick?: () => void }) {
     return (
       <span>
         You've used all your tokens.{' '}
-        <a
-          href={BILLING_UPGRADE_URL}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="text-adam-blue hover:underline"
-        >
-          Upgrade
-        </a>{' '}
-        for more tokens, or{' '}
         <Link to="/settings" className="text-adam-blue hover:underline">
-          buy a token pack
-        </Link>
-        .
+          Buy a token pack
+        </Link>{' '}
+        for more.
       </span>
     );
   }
@@ -96,16 +86,7 @@ function LimitReachedSpan({ onTrialClick }: { onTrialClick?: () => void }) {
       You've used all your tokens for this period.{' '}
       <Link to="/settings" className="text-adam-blue hover:underline">
         Buy more tokens
-      </Link>{' '}
-      or{' '}
-      <a
-        href={BILLING_UPGRADE_URL}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="text-adam-blue hover:underline"
-      >
-        upgrade your plan
-      </a>
+      </Link>
       .
     </span>
   );

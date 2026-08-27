@@ -1,14 +1,10 @@
 import { createFileRoute, redirect } from '@tanstack/react-router';
-import { BILLING_URL, BILLING_UPGRADE_URL } from '@/config/billing';
 
-// Billing moved to the accounts app; keep this stub so old
-// adam.new/cadam/subscription links still land somewhere useful.
-// ?trial used to open the trial dialog here — carry that intent
-// through to the upgrade flow on the billing page.
+// This route used to bounce people out to an external billing page. It stays
+// as a route only so old /subscription links do not 404; it now lands on
+// settings, which is the one billing surface that is actually ours.
 export const Route = createFileRoute('/_layout/subscription')({
-  beforeLoad: ({ location }) => {
-    throw redirect({
-      href: 'trial' in location.search ? BILLING_UPGRADE_URL : BILLING_URL,
-    });
+  beforeLoad: () => {
+    throw redirect({ to: '/settings' });
   },
 });

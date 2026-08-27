@@ -10,7 +10,11 @@ import {
 import { billing } from '@/server/billingClient';
 import { env } from '@/server/env';
 
-const appUrl = () => env('ADAM_URL') || 'https://adam.new/app';
+// Where Stripe returns the customer once checkout finishes. Derived from the
+// request rather than hardcoded: the previous fallback sent people to another
+// company's app whenever APP_URL was unset — which is its default state.
+const appUrl = (request: Request) =>
+  env('APP_URL') || new URL(request.url).origin;
 const MAX_TRIAL_PERIOD_DAYS = 7;
 
 export const Route = createFileRoute('/api/billing-checkout')({
@@ -39,8 +43,8 @@ export const Route = createFileRoute('/api/billing-checkout')({
           }
           const result = await billing.createCheckout(user.id, {
             priceId: body.priceId,
-            successUrl: appUrl(),
-            cancelUrl: appUrl(),
+            successUrl: appUrl(request),
+            cancelUrl: appUrl(request),
             trialPeriodDays,
           });
           return json(result);

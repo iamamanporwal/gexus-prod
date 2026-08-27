@@ -495,7 +495,7 @@ function AssistantBubble({
       <div className="mr-2 mt-1 shrink-0">
         <Avatar className="h-9 w-9 border border-adam-neutral-700 bg-adam-neutral-950">
           <div style={{ padding: '0.6rem 0.5rem 0.5rem 0.55rem' }}>
-            <AvatarImage src={publicPath('adam-logo.svg')} alt="Adam" />
+            <AvatarImage src={publicPath('adam-logo.svg')} alt="GEXUS" />
           </div>
         </Avatar>
       </div>

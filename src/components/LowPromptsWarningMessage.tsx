@@ -2,7 +2,6 @@ import { getLevel } from '@/lib/billing';
 import { useBilling } from '@/hooks/useBilling';
 import { Link } from '@tanstack/react-router';
 import { TrialDialog } from './billing/TrialDialog';
-import { BILLING_UPGRADE_URL } from '@/config/billing';
 import { cn } from '@/lib/utils';
 
 export function LowPromptsWarningMessage({
@@ -40,15 +39,10 @@ function LowTokensWarningContent({
     return (
       <span>
         {tokensText}.{' '}
-        <a
-          href={BILLING_UPGRADE_URL}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="text-adam-blue hover:underline"
-        >
-          Upgrade
-        </a>{' '}
-        for more tokens.
+        <Link to="/settings" className="text-adam-blue hover:underline">
+          Buy more tokens
+        </Link>
+        .
       </span>
     );
   }
@@ -78,16 +72,7 @@ function LowTokensWarningContent({
       {tokensText}.{' '}
       <Link to="/settings" className="text-adam-blue hover:underline">
         Buy more tokens
-      </Link>{' '}
-      or{' '}
-      <a
-        href={BILLING_UPGRADE_URL}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="text-adam-blue hover:underline"
-      >
-        upgrade
-      </a>
+      </Link>
       .
     </span>
   );

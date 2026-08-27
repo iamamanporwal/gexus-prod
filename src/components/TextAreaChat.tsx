@@ -465,7 +465,7 @@ function TextAreaChat({
   onSubmit,
   onFocus,
   isLoading = false,
-  placeholder = 'What can Adam help you build today?',
+  placeholder = 'What can GEXUS help you build today?',
   type,
   stopGenerating,
   disabled = false,
@@ -1596,7 +1596,7 @@ function TextAreaChat({
             <div className="h-full w-full p-1.5">
               <img
                 src={publicPath('Adam-Logo.png')}
-                alt="Adam Logo"
+                alt="GEXUS"
                 className="h-full w-full object-contain"
               />
             </div>

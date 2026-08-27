@@ -290,7 +290,7 @@ export function PromptView() {
                     id: draftConversationId,
                     user_id: guestUserId(),
                   }}
-                  placeholder="Start building with Adam..."
+                  placeholder="Start building with GEXUS..."
                   type={type}
                   disabled={limitReached || isGenerating}
                   model={model}

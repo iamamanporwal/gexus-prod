@@ -27,9 +27,9 @@ export function TermsOfServiceView() {
                   1. Acceptance of Terms
                 </h2>
                 <p className="text-gray-400">
-                  By accessing and using AdamCAD ("the Service"), you agree to
-                  be bound by these Terms of Service. If you do not agree to
-                  these terms, please do not use the Service.
+                  By accessing and using GEXUS ("the Service"), you agree to be
+                  bound by these Terms of Service. If you do not agree to these
+                  terms, please do not use the Service.
                 </p>
               </section>
 
@@ -38,10 +38,10 @@ export function TermsOfServiceView() {
                   2. Description of Service
                 </h2>
                 <p className="text-gray-400">
-                  AdamCAD is a web-based 3D modeling platform that allows users
-                  to create, modify, and generate 3D models. The Service
-                  includes all features, updates, and new releases as they
-                  become available.
+                  GEXUS is a web-based 3D modeling platform that allows users to
+                  create, modify, and generate 3D models. The Service includes
+                  all features, updates, and new releases as they become
+                  available.
                 </p>
               </section>
 
@@ -79,7 +79,7 @@ export function TermsOfServiceView() {
                     rights in content you create using the Service.
                   </p>
                   <p>
-                    4.2. By using the Service, you grant AdamCAD a worldwide
+                    4.2. By using the Service, you grant GEXUS a worldwide
                     license to host and display your content.
                   </p>
                   <p>
@@ -157,7 +157,7 @@ export function TermsOfServiceView() {
                   9. Limitation of Liability
                 </h2>
                 <p className="text-gray-400">
-                  To the maximum extent permitted by law, AdamCAD shall not be
+                  To the maximum extent permitted by law, GEXUS shall not be
                   liable for any indirect, incidental, special, consequential,
                   or punitive damages resulting from your use of the Service.
                 </p>
@@ -183,8 +183,8 @@ export function TermsOfServiceView() {
                   at:
                 </p>
                 <div className="mt-2 text-gray-400">
-                  <p>AdamCAD</p>
-                  <p>Email: hello@adamcad.com</p>
+                  <p>GEXUS</p>
+                  <p>Email: [CONTACT EMAIL — TO BE SET BEFORE LAUNCH]</p>
                 </div>
               </section>
             </div>

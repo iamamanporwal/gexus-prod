@@ -1,14 +1,6 @@
 import { useState } from 'react';
 import { Link, useNavigate } from '@tanstack/react-router';
-import {
-  Menu,
-  Plus,
-  Crown,
-  Settings,
-  LayoutGrid,
-  LogIn,
-  LogOut,
-} from 'lucide-react';
+import { Menu, Plus, Settings, LayoutGrid, LogIn, LogOut } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Tooltip,
@@ -24,7 +16,6 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { supabase, guestUserId, guestUserLabel } from '@/lib/db';
-import { BILLING_URL } from '@/config/billing';
 import {
   Sheet,
   SheetContent,
@@ -400,17 +391,6 @@ function DesktopSidebar({ isSidebarOpen, setIsSidebarOpen }: SidebarProps) {
                       <span>Settings</span>
                     </Link>
                   </DropdownMenuItem>
-                  <DropdownMenuItem asChild>
-                    <a
-                      href={BILLING_URL}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex items-center"
-                    >
-                      <Crown className="mr-2 h-4 w-4" />
-                      <span>Subscriptions</span>
-                    </a>
-                  </DropdownMenuItem>
                 </DropdownMenuGroup>
                 {isSignedIn && (
                   <>
@@ -460,7 +440,7 @@ function MobileSidebar({
       >
         {/* For aria stuff */}
         <SheetHeader className="hidden">
-          <SheetTitle className="text-adam-text-primary">AdamCAD</SheetTitle>
+          <SheetTitle className="text-adam-text-primary">GEXUS</SheetTitle>
           <SheetDescription>
             AI-powered CAD software for everyone
           </SheetDescription>

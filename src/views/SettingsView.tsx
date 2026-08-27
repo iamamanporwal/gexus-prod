@@ -15,7 +15,6 @@ import { useProfile, useUpdateProfile } from '@/services/profileService';
 import { AvatarUpdateDialog } from '@/components/profile/AvatarUpdateDialog';
 import { useTokenPacks } from '@/hooks/useTokenPacks';
 import { PLAN_DISPLAY_NAMES } from '@/config/plan-features';
-import { BILLING_URL, BILLING_UPGRADE_URL } from '@/config/billing';
 
 function formatPeriodEnd(iso: string | null | undefined): string | null {
   if (!iso) return null;
@@ -115,7 +114,7 @@ export default function SettingsView() {
   // identity provider. Name, avatar and notifications are still editable
   // because they live in the local `profiles` row.
 
-  const tierLabel = `Adam ${PLAN_DISPLAY_NAMES[level]}`;
+  const tierLabel = `GEXUS ${PLAN_DISPLAY_NAMES[level]}`;
 
   const tierAccent =
     level === 'free'
@@ -221,7 +220,7 @@ export default function SettingsView() {
               <div className="min-w-0 flex-1">
                 <div className="text-sm text-adam-neutral-50">Responses</div>
                 <div className="mt-0.5 text-xs leading-relaxed text-adam-neutral-200">
-                  Get notified when Adam finishes a long-running request.
+                  Get notified when GEXUS finishes a long-running request.
                 </div>
               </div>
               <Switch
@@ -256,37 +255,6 @@ export default function SettingsView() {
                     <span className="text-xs text-adam-neutral-300">
                       Renews {periodEnd}
                     </span>
-                  )}
-                </div>
-
-                <div className="flex flex-shrink-0 items-center gap-2">
-                  <Button
-                    asChild
-                    className="rounded-full font-light"
-                    variant="dark"
-                  >
-                    <a
-                      href={BILLING_URL}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                    >
-                      {level !== 'free' ? 'Manage' : 'Manage billing'}
-                    </a>
-                  </Button>
-                  {level === 'free' && (
-                    <Button
-                      asChild
-                      className="rounded-full font-light"
-                      variant="light"
-                    >
-                      <a
-                        href={BILLING_UPGRADE_URL}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                      >
-                        Upgrade
-                      </a>
-                    </Button>
                   )}
                 </div>
               </div>

@@ -559,7 +559,7 @@ export function ChatSession({
             toast({
               title: "Couldn't save this step",
               description:
-                "The model is shown but the build wasn't saved, so Adam paused. Please retry.",
+                "The model is shown but the build wasn't saved, so GEXUS paused. Please retry.",
               variant: 'destructive',
             });
           }
@@ -668,7 +668,7 @@ export function ChatSession({
       }
       const message = error instanceof Error ? error.message : String(error);
       toast({
-        title: 'Adam ran into a problem',
+        title: 'GEXUS ran into a problem',
         description: message || 'The model call failed. Please try again.',
         variant: 'destructive',
       });
@@ -1015,7 +1015,7 @@ export function ChatSession({
         <TextAreaChat
           type={conversation.type}
           onSubmit={(parts) => void handleSend(parts)}
-          placeholder="Keep iterating with Adam..."
+          placeholder="Keep iterating with GEXUS..."
           isLoading={isLoading}
           stopGenerating={stop}
           disabled={isDisabled}
