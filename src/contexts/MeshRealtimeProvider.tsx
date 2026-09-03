@@ -56,7 +56,7 @@ export function MeshRealtimeProvider({
         if (await ensurePermission()) {
           const notification = new Notification('3D model is ready', {
             body: 'Your generated 3D model has finished. Click to open.',
-            icon: publicPath('Adam-Logo.png'),
+            icon: publicPath('gexus-mark.png'),
           });
           notification.onclick = () => {
             window.focus();

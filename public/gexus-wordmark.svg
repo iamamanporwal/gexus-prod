@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="628" height="100" viewBox="0 0 628 100" role="img" aria-label="GEXUS">
+ <g fill="none" stroke="#F1F1F1" stroke-width="13" stroke-linecap="butt" stroke-linejoin="miter">
+  <path transform="translate(0 0)" d="M80.76 19.24A43.5 43.5 0 1 0 80.76 80.76V50H52"/>
+  <path transform="translate(132 0)" d="M6.5 6.5H93.5M6.5 50H84.5M6.5 93.5H93.5M6.5 6.5V93.5"/>
+  <path transform="translate(264 0)" d="M6.5 6.5L93.5 93.5M93.5 6.5L6.5 93.5"/>
+  <path transform="translate(396 0)" d="M6.5 6.5V50A43.5 43.5 0 0 0 93.5 50V6.5"/>
+  <path transform="translate(528 0)" d="M90.88 20.81A43.5 21.75 0 1 0 50 50A43.5 21.75 0 1 1 9.12 79.19"/>
+ </g>
+</svg>

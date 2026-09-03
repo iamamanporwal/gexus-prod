@@ -38,12 +38,12 @@ function RootDocument({ children }: { children: React.ReactNode }) {
         <link
           rel="icon"
           type="image/svg+xml"
-          href={assetUrl('cadam-icon.svg')}
+          href={assetUrl('gexus-icon.svg')}
         />
         <link
           rel="icon"
           type="image/x-icon"
-          href={assetUrl('cadam-icon.ico')}
+          href={assetUrl('gexus-icon.ico')}
         />
         <HeadContent />
       </head>

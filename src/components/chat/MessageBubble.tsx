@@ -495,7 +495,7 @@ function AssistantBubble({
       <div className="mr-2 mt-1 shrink-0">
         <Avatar className="h-9 w-9 border border-adam-neutral-700 bg-adam-neutral-950">
           <div style={{ padding: '0.6rem 0.5rem 0.5rem 0.55rem' }}>
-            <AvatarImage src={publicPath('adam-logo.svg')} alt="GEXUS" />
+            <AvatarImage src={publicPath('gexus-mark.svg')} alt="GEXUS" />
           </div>
         </Avatar>
       </div>
@@ -524,7 +524,7 @@ function AssistantBubble({
 
           if (part.type === 'reasoning') {
             if (!part.text) return null;
-            // CADAM-tailored wrapper around ai-elements' Reasoning primitive
+            // GEXUS-tailored wrapper around ai-elements' Reasoning primitive
             // — adds a capped-height scroll body with auto-pin-to-bottom
             // while the model is still streaming reasoning tokens.
             return (

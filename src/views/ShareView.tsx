@@ -112,9 +112,9 @@ function ShareUnavailable() {
   return (
     <div className="flex min-h-dvh w-full flex-col items-center justify-center gap-6 bg-adam-bg-secondary-dark px-6 text-center text-adam-text-primary">
       <img
-        src={publicPath('cadam-logo.svg')}
+        src={publicPath('gexus-wordmark.svg')}
         alt="GEXUS"
-        className="h-7 w-auto opacity-80"
+        className="h-5 w-auto opacity-80"
       />
       <div className="flex flex-col gap-2">
         <h1 className="text-xl font-medium">This model isn&apos;t shared</h1>

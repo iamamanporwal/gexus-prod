@@ -5,7 +5,7 @@ import { TrialDialog } from '@/components/billing/TrialDialog';
 
 /**
  * "Free plan | Start free trial" pill shown above the greeting for
- * free-plan users who haven't used their trial yet — the CADAM port of the
+ * free-plan users who haven't used their trial yet — the GEXUS port of the
  * workspace pill. It renders nothing until billing has resolved (so it never
  * flashes on a paying user) and disappears once the trial has been used.
  *

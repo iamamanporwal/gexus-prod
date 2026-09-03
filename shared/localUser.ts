@@ -9,7 +9,7 @@
 // readable on the next, and so the seeded profile row in supabase/seed.sql can
 // reference the same id.
 export const LOCAL_USER_ID = '00000000-0000-0000-0000-0000000000cd';
-export const LOCAL_USER_EMAIL = 'local@cadam.local';
+export const LOCAL_USER_EMAIL = 'local@gexus.local';
 export const LOCAL_USER_NAME = 'Local User';
 
 // Shaped like the subset of supabase-js's `User` the app actually reads, so

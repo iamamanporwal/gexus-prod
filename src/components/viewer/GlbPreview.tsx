@@ -4,13 +4,13 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import vertexShader from '@/utils/points.vert?raw';
 import fragmentShader from '@/utils/points.frag?raw';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { adamLogoVertices } from '@/utils/adamLogoVertices';
+import { gexusLogoVertices } from '@/utils/gexusLogoVertices';
 import { useIsMobile } from '@/hooks/useIsMobile';
 
 interface GlbPreviewProps {
   /**
    * GLB blob (typically the Hunyuan turbo preview returned during mesh generation).
-   * While undefined, the Adam-logo particle cloud holds. As soon as the blob arrives
+   * While undefined, the GEXUS-wordmark particle cloud holds. As soon as the blob arrives
    * the logo dissolves and the mesh point cloud diffuses into place.
    */
   glbBlob?: Blob;
@@ -203,24 +203,24 @@ export function GlbPreview({ glbBlob }: GlbPreviewProps) {
     meshLoadedRef.current = false;
     pendingMeshVerticesRef.current = null;
 
-    const createAdamLogoPoints = () => {
+    const createWordmarkPoints = () => {
       const scene = sceneRef.current;
       if (!scene) {
         return;
       }
 
-      const vertices: number[] = adamLogoVertices;
+      const vertices: number[] = gexusLogoVertices;
 
       createPoints(vertices, scene, 1);
     };
 
-    // Create Adam-logo points immediately (scene is ready now)
-    createAdamLogoPoints();
+    // Create wordmark points immediately (scene is ready now)
+    createWordmarkPoints();
     logoDissolveStartTimeRef.current = null;
     logoDissolveCompletedRef.current = false;
     diffusionStartTimeRef.current = null;
 
-    // If no glbBlob, just keep the Adam logo indefinitely
+    // If no glbBlob, just keep the wordmark indefinitely
     if (!glbBlob) {
       return () => {
         if (pointsRef.current) {
@@ -314,7 +314,7 @@ export function GlbPreview({ glbBlob }: GlbPreviewProps) {
 
         let progress: number;
 
-        // 1. Run the Adam-logo dissolve (triggered only when glbBlob exists)
+        // 1. Run the wordmark dissolve (triggered only when glbBlob exists)
         if (
           !logoDissolveCompletedRef.current &&
           logoDissolveStartTimeRef.current
@@ -326,7 +326,7 @@ export function GlbPreview({ glbBlob }: GlbPreviewProps) {
           );
           progress = 1 - dissolveProgress; // Reverse: 1 → 0
 
-          // Before dissolve starts, show adam logo
+          // Before dissolve starts, show the wordmark
           if (!pendingMeshVerticesRef.current) {
             progress = 1;
           }

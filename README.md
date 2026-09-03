@@ -42,11 +42,11 @@
 
 ## 📺 Screenshots
 
-<img src="./public/screenshot-2.jpeg" alt="CADAM Screenshot 2" />
+<img src="./public/screenshot-2.jpeg" alt="GEXUS Screenshot 2" />
 
 ## 🧪 Benchmarks
 
-A showcase of what CADAM builds from a single plain-language description — from full multi-part machines down to clean parametric parts. Each model below started from the prompt shown and came out as fully parametric OpenSCAD, ready to export as `.STL`, `.SCAD`, or `.DXF`. The source and a short write-up for each live in [`benchmarks/`](benchmarks/); the orbiting previews are rendered with [`benchmarks/render.sh`](benchmarks/render.sh).
+A showcase of what GEXUS builds from a single plain-language description — from full multi-part machines down to clean parametric parts. Each model below started from the prompt shown and came out as fully parametric OpenSCAD, ready to export as `.STL`, `.SCAD`, or `.DXF`. The source and a short write-up for each live in [`benchmarks/`](benchmarks/); the orbiting previews are rendered with [`benchmarks/render.sh`](benchmarks/render.sh).
 
 ### Complex machines & assemblies
 
@@ -197,7 +197,7 @@ npm run dev
 
 ## 🌐 Setting Up ngrok for Local Development
 
-CADAM uses public URLs for provider callbacks and local signed storage URLs:
+GEXUS uses public URLs for provider callbacks and local signed storage URLs:
 
 1. Install ngrok if you haven't already:
 

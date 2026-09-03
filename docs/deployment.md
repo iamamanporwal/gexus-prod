@@ -660,8 +660,8 @@ because `baseURL` is `/cadam` the files are actually served from
 sets `sourcemap: true`, which is most of why `static/` is 80 MB. The Sentry plugin
 is already wired up — have it upload sourcemaps and delete them from the output
 (`sourcemaps.filesToDeleteAfterUpload`), so you keep readable stack traces without
-publishing your source. Also exclude the 7.8 MB `public/cadam-launch.gif`; it is a
-README asset the app never loads.
+publishing your source. (The 7.8 MB `public/cadam-launch.gif` used to be worth
+excluding here too; it went with the CADAM branding and is no longer in `public/`.)
 
 ### 5.3 Base path decision
 

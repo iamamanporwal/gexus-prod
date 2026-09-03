@@ -1040,3 +1040,37 @@ input::placeholder {
     opacity: 1;
   }
 }
+
+/* The GEXUS monogram drawing itself, used by the viewer's Loader.
+   The path carries pathLength="100", so the dash lengths below are literally
+   percentages of the stroke: it draws in over the first half of the cycle, then
+   the dash slides off to erase it. */
+@keyframes gexusLoaderDraw {
+  0% {
+    stroke-dasharray: 0 100;
+    stroke-dashoffset: 0;
+  }
+  45% {
+    stroke-dasharray: 100 100;
+    stroke-dashoffset: 0;
+  }
+  55% {
+    stroke-dasharray: 100 100;
+    stroke-dashoffset: 0;
+  }
+  100% {
+    stroke-dasharray: 100 100;
+    stroke-dashoffset: -100;
+  }
+}
+
+.gexus-loader-stroke {
+  animation: gexusLoaderDraw 1.8s ease-in-out infinite;
+}
+
+/* Anyone who has asked for less motion gets the finished mark, held still. */
+@media (prefers-reduced-motion: reduce) {
+  .gexus-loader-stroke {
+    animation: none;
+  }
+}

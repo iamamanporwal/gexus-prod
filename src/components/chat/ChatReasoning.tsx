@@ -26,7 +26,7 @@ interface ChatReasoningProps {
 }
 
 /**
- * CADAM-tailored reasoning block.
+ * GEXUS-tailored reasoning block.
  *
  * Wraps the ai-elements `Reasoning` + `ReasoningTrigger` primitives with our
  * own collapsible body so we get:
@@ -36,7 +36,7 @@ interface ChatReasoningProps {
  *  * A native scrollbar contained to the reasoning block itself — the outer
  *    chat ScrollArea is unaffected, so we don't end up with stacked
  *    scrollbars when the chat is also overflowing.
- *  * CADAM-themed muted text colors (the shadcn `text-muted-foreground` /
+ *  * GEXUS-themed muted text colors (the shadcn `text-muted-foreground` /
  *    `hover:text-foreground` tokens resolve to near-black on our :root,
  *    which is unreadable on the dark chat panel).
  *

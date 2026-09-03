@@ -1,2 +1,4 @@
 src/vendor/openscad-wasm/
 src/assets/
+# Generated from scripts/brand-geometry.mjs; the generator owns its layout.
+src/utils/gexusLogoVertices.ts

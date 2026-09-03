@@ -135,8 +135,8 @@ function DesktopSidebar({ isSidebarOpen, setIsSidebarOpen }: SidebarProps) {
               </div>
             ) : (
               <img
-                src={publicPath('adam-logo.svg')}
-                alt="Logo"
+                src={publicPath('gexus-mark.svg')}
+                alt="GEXUS"
                 className="h-8 w-8 min-w-8"
               />
             )}

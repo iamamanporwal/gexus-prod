@@ -8,9 +8,9 @@ export function TermsOfServiceView() {
         <div className="rounded-lg bg-adam-bg-secondary-dark p-8 shadow-md">
           <div className="mb-8 flex flex-col items-center justify-center">
             <img
-              src={publicPath('cadam-logo.svg')}
-              alt="CADAM Logo"
-              className="mb-4 h-8 w-auto"
+              src={publicPath('gexus-wordmark.svg')}
+              alt="GEXUS"
+              className="mb-4 h-6 w-auto"
             />
             <h1 className="text-center text-3xl font-semibold text-white">
               Terms of Service

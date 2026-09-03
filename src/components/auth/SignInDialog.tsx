@@ -62,10 +62,10 @@ export function SignInDialog({
       <DialogContent className="mx-auto w-[calc(100%-2rem)] max-w-md gap-0 rounded-2xl border border-adam-neutral-800 bg-adam-bg-secondary-dark p-0 text-adam-text-primary">
         <div className="flex flex-col items-center gap-6 px-8 pb-8 pt-10">
           <img
-            src={publicPath('cadam-logo.svg')}
+            src={publicPath('gexus-wordmark.svg')}
             alt=""
             aria-hidden="true"
-            className="h-8 w-auto"
+            className="h-5 w-auto"
           />
 
           <div className="flex flex-col items-center gap-2 text-center">

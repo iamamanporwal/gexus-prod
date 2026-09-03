@@ -1595,7 +1595,7 @@ function TextAreaChat({
           <Avatar className="mt-1 h-8 w-8">
             <div className="h-full w-full p-1.5">
               <img
-                src={publicPath('Adam-Logo.png')}
+                src={publicPath('gexus-mark.svg')}
                 alt="GEXUS"
                 className="h-full w-full object-contain"
               />

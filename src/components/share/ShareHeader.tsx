@@ -23,9 +23,9 @@ export function ShareHeader({ title, isRemixing, onRemix }: ShareHeaderProps) {
       <div className="flex min-w-0 items-center gap-3">
         <Link to="/" className="shrink-0">
           <img
-            src={publicPath('cadam-logo.svg')}
+            src={publicPath('gexus-wordmark.svg')}
             alt="GEXUS"
-            className="h-6 w-auto"
+            className="h-4 w-auto"
           />
         </Link>
         <div className="hidden h-5 w-px bg-adam-neutral-800 sm:block" />
