@@ -23,7 +23,7 @@ export function ShareHeader({ title, isRemixing, onRemix }: ShareHeaderProps) {
       <div className="flex min-w-0 items-center gap-3">
         <Link to="/" className="shrink-0">
           <img
-            src={publicPath('gexus-wordmark.svg')}
+            src={publicPath('LOGO.png')}
             alt="GEXUS"
             className="h-4 w-auto"
           />

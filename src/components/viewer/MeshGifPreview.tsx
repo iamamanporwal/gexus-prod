@@ -50,7 +50,7 @@ export function MeshGifPreview({
   const [canvas, setCanvas] = useState<HTMLCanvasElement | null>(null);
   const logoImage = useMemo(() => {
     const img = new Image();
-    img.src = publicPath('gexus-wordmark.svg'); // served from public folder root
+    img.src = publicPath('LOGO.png'); // served from public folder root
     return img;
   }, []);
   const isGeneratingRef = useRef(false);
@@ -691,7 +691,7 @@ export function MeshGifPreview({
           ref={canvasRefCallback}
         />
         <img
-          src={publicPath('gexus-wordmark.svg')}
+          src={publicPath('LOGO.png')}
           alt="GEXUS"
           className="pointer-events-none absolute bottom-3 right-3 w-[15%] select-none"
         />

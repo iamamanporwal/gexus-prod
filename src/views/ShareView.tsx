@@ -112,7 +112,7 @@ function ShareUnavailable() {
   return (
     <div className="flex min-h-dvh w-full flex-col items-center justify-center gap-6 bg-adam-bg-secondary-dark px-6 text-center text-adam-text-primary">
       <img
-        src={publicPath('gexus-wordmark.svg')}
+        src={publicPath('LOGO.png')}
         alt="GEXUS"
         className="h-5 w-auto opacity-80"
       />

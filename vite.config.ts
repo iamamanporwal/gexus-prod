@@ -109,7 +109,7 @@ function serveOpenScadWasmInDev(): Plugin {
   };
 }
 
-export default defineConfig({
+export default defineConfig(({ command }) => ({
   base: appBase,
   plugins: [
     fixNitroVercelNodeEntry(),
@@ -237,22 +237,31 @@ export default defineConfig({
       // Enter firebase-admin through its CJS implementation, skipping the
       // package's ESM shims — see the note on the nitro plugin above. Exact
       // subpath matches; only these four are imported (src/server).
-      'firebase-admin/app': path.resolve(
-        __dirname,
-        'node_modules/firebase-admin/lib/app/index.js',
-      ),
-      'firebase-admin/auth': path.resolve(
-        __dirname,
-        'node_modules/firebase-admin/lib/auth/index.js',
-      ),
-      'firebase-admin/firestore': path.resolve(
-        __dirname,
-        'node_modules/firebase-admin/lib/firestore/index.js',
-      ),
-      'firebase-admin/storage': path.resolve(
-        __dirname,
-        'node_modules/firebase-admin/lib/storage/index.js',
-      ),
+      //
+      // Build only. The dev server runs server code through Vite's ESM module
+      // runner, which evaluates these CJS files as ESM and dies on the first
+      // `exports` ("exports is not defined"), 500ing every request. In dev
+      // Node loads firebase-admin natively, so its normal entries just work.
+      ...(command === 'build'
+        ? {
+            'firebase-admin/app': path.resolve(
+              __dirname,
+              'node_modules/firebase-admin/lib/app/index.js',
+            ),
+            'firebase-admin/auth': path.resolve(
+              __dirname,
+              'node_modules/firebase-admin/lib/auth/index.js',
+            ),
+            'firebase-admin/firestore': path.resolve(
+              __dirname,
+              'node_modules/firebase-admin/lib/firestore/index.js',
+            ),
+            'firebase-admin/storage': path.resolve(
+              __dirname,
+              'node_modules/firebase-admin/lib/storage/index.js',
+            ),
+          }
+        : {}),
     },
   },
   build: {
@@ -307,4 +316,4 @@ export default defineConfig({
   optimizeDeps: {
     exclude: ['@zip.js/zip.js', 'three', 'three-stdlib', '@sentry/vite-plugin'],
   },
-});
+}));

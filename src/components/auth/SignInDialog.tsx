@@ -62,7 +62,7 @@ export function SignInDialog({
       <DialogContent className="mx-auto w-[calc(100%-2rem)] max-w-md gap-0 rounded-2xl border border-adam-neutral-800 bg-adam-bg-secondary-dark p-0 text-adam-text-primary">
         <div className="flex flex-col items-center gap-6 px-8 pb-8 pt-10">
           <img
-            src={publicPath('gexus-wordmark.svg')}
+            src={publicPath('LOGO.png')}
             alt=""
             aria-hidden="true"
             className="h-5 w-auto"

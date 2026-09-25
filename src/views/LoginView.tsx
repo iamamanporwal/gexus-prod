@@ -41,7 +41,7 @@ export function LoginView() {
         <div className="flex flex-col justify-center gap-8 p-8 md:p-12">
           <Link to="/" className="w-fit">
             <img
-              src={publicPath('gexus-wordmark.svg')}
+              src={publicPath('LOGO.png')}
               alt="GEXUS"
               className="h-6 w-auto"
             />

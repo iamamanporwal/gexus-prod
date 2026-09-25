@@ -8,7 +8,7 @@ export function PrivacyPolicyView() {
         <div className="rounded-lg bg-adam-bg-secondary-dark p-8 shadow-md">
           <div className="mb-8 flex flex-col items-center justify-center">
             <img
-              src={publicPath('gexus-wordmark.svg')}
+              src={publicPath('LOGO.png')}
               alt="GEXUS"
               className="mb-4 h-6 w-auto"
             />
