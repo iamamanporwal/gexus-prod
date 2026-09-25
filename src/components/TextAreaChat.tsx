@@ -99,11 +99,11 @@ export type PromptExample = {
   sizeMm?: number;
 };
 
-// The overall size a user gives for an attached image, as a line the model
-// reads (PARAMETRIC_AGENT_PROMPT, "Reference images"). Photos carry no scale,
-// so this one number is what turns guessed dimensions into real ones. Kept in
-// the visible message text rather than hidden metadata so the user can see
-// exactly what was asked, and so it survives in the saved conversation.
+// The overall size a user gives for an attached image. Photos carry no scale,
+// so this one number is what turns guessed dimensions into real ones. Sent as
+// a `data-size-hint` part: the server turns it into a line for the model
+// (PARAMETRIC_AGENT_PROMPT, "Reference images"), and the message bubble does
+// not render it, so it never shows up in the user's own prompt.
 const MIN_SIZE_MM = 1;
 const MAX_SIZE_MM = 2000;
 
@@ -113,10 +113,6 @@ function parseSizeMm(value: string): number | null {
     return null;
   }
   return Math.round(size * 10) / 10;
-}
-
-function sizeNote(sizeMm: number): string {
-  return `Overall size: longest side about ${sizeMm} mm.`;
 }
 
 // SVG Icon component for the quads/polys toggle
@@ -573,6 +569,12 @@ function TextAreaChat({
   const { toast } = useToast();
   const { requireSignIn, isSignedIn, account } = useAuth();
   const { images, mesh, setImages, setMesh } = useItemSelection();
+
+  // The size belongs to the attached image. Once none is attached, forget it,
+  // so a value left by an example cannot ride along with the next upload.
+  useEffect(() => {
+    if (images.length === 0) setSizeMm('');
+  }, [images.length]);
   const meshFiles = useMeshFiles();
   const creativeModel =
     type === 'creative' && isCreativeModel(model) ? model : null;
@@ -888,9 +890,7 @@ function TextAreaChat({
 
     const parsedSize =
       type === 'parametric' && images.length > 0 ? parseSizeMm(sizeMm) : null;
-    const text = [input.trim(), parsedSize ? sizeNote(parsedSize) : '']
-      .filter(Boolean)
-      .join('\n\n');
+    const text = input.trim();
     const parts: AppUIMessage['parts'] = [];
 
     if (text) {
@@ -908,6 +908,13 @@ function TextAreaChat({
         // Display + model-feeding resolve the bytes from storage by id.
         url: imageFilePartUrl(conversation.user_id, conversation.id, image.id),
         filename: `${image.id}.png`,
+      });
+    }
+
+    if (parsedSize && parts.some((part) => part.type === 'file')) {
+      parts.push({
+        type: 'data-size-hint',
+        data: { longestSideMm: parsedSize },
       });
     }
 
@@ -1976,6 +1983,24 @@ function TextAreaChat({
                   )}
                 </button>
               ))}
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  const fileInput = document.createElement('input');
+                  fileInput.type = 'file';
+                  fileInput.accept = VALID_IMAGE_FORMATS.join(', ');
+                  fileInput.onchange = () => handleItemsChange(fileInput.files);
+                  fileInput.click();
+                }}
+                disabled={!!loadingExample || isLoading || disabled}
+                className="group/example relative flex flex-col items-center gap-1.5 rounded-xl border border-adam-neutral-700 bg-adam-background-2 p-2 text-xs text-adam-text-secondary transition-colors hover:border-adam-blue/60 hover:text-adam-text-primary disabled:opacity-50"
+              >
+                <div className="flex aspect-square w-full items-center justify-center rounded-lg border-2 border-dashed border-adam-neutral-700 transition-colors group-hover/example:border-adam-blue/60">
+                  <ImagePlus className="h-6 w-6" />
+                </div>
+                <span className="truncate">Upload photo</span>
+              </button>
             </div>
           </div>
         )}

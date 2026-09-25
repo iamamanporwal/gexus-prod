@@ -100,7 +100,13 @@ export type AppDataTypes = {
   'mesh-preferences': MeshPreferencesData;
   'title-update': ConversationTitleUpdate;
   'suggestions-update': ConversationSuggestionsUpdate;
+  // The optional overall size typed next to an attached image. A data part
+  // rather than text so it reaches the model (aiChat convertDataPart) without
+  // being written into the user's visible message.
+  'size-hint': SizeHintData;
 };
+
+export type SizeHintData = { longestSideMm: number };
 
 export const meshContextDataSchema = z.object({
   meshId: z.string(),

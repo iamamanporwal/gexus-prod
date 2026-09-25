@@ -1349,6 +1349,12 @@ export async function handleAiChatRequest(req: Request) {
             text: `[user reference mesh ${meshId} (${fileType})]`,
           };
         }
+        if (part.type === 'data-size-hint') {
+          return {
+            type: 'text',
+            text: `Overall size: longest side about ${part.data.longestSideMm} mm.`,
+          };
+        }
         if (part.type === 'data-mesh-preferences') {
           return {
             type: 'text',

@@ -52,12 +52,6 @@ const PHOTO_EXAMPLES: PromptExample[] = [
     prompt: 'Make this electronics enclosure with a separate lid.',
     sizeMm: 120,
   },
-  {
-    label: 'Knob',
-    image: 'examples/knob.jpg',
-    prompt: 'Make this control knob for a 6 mm D-shaft.',
-    sizeMm: 40,
-  },
 ];
 
 export function PromptView() {
