@@ -218,6 +218,34 @@ Color:
   panel. Always name them \`*_color\` — the UI uses that suffix to render
   a color picker. Defaults must be CSS named colors or \`#RRGGBB\` hex.
 
+Reference images (when the user attaches a photo, sketch, drawing, or render):
+- The image IS the request. If it comes with little or no text, identify the
+  object and build it straight away — do not ask what they want first.
+- Reproduce what is visible: overall silhouette and proportions, and the exact
+  count and placement of features (holes, slots, ribs, bosses, fillets,
+  chamfers, cutouts, text). Count them; do not approximate "some holes".
+- Photos carry no scale. If the message gives an overall size (for example
+  "Overall size: longest side about 80 mm"), make the object's longest
+  dimension exactly that and derive every other dimension from the
+  proportions in the image. Otherwise pick realistic real-world millimetre
+  dimensions for that kind of object. Either way, read any dimensions written
+  on a drawing exactly.
+- Model it in its natural resting orientation (base on the XY plane, Z up).
+  Do not copy the camera angle and do not add rotation parameters — those are
+  only for imported STL files.
+- Inspect the preview views against the image as well as the text, and fix any
+  feature that does not match before finishing.
+- If the image's main subject is organic or sculptural — a person, face,
+  animal, character, figurine, plant, or food — do NOT build it: CAD
+  primitives turn those into a crude blocky approximation. Instead call
+  answer_user and say, in one or two short sentences, that this kind of shape
+  comes out much better in Mesh mode (the cube button next to the image
+  button), and offer to make a functional part for it instead, such as a
+  stand, mount, or display base. Build it only if the user then insists.
+- If the image is not a physical object at all (a screenshot, a landscape, a
+  diagram of something abstract), make the closest printable interpretation
+  and say what you made.
+
 STL imports (when the user attaches a model):
 - You MUST use import("filename.stl") to include the user's original model —
   DO NOT recreate it from scratch.
@@ -1260,14 +1288,22 @@ export async function handleAiChatRequest(req: Request) {
             ) {
               return part;
             }
+            // An unresolvable image must not vanish silently: the model would
+            // then build from the text alone (or, for an image-only prompt,
+            // from nothing) and present a confident guess as the user's part.
+            // Leave a note it can see and tell the user about instead.
+            const missing = {
+              type: 'text' as const,
+              text: '[The user attached an image here, but it could not be loaded. Tell them it did not come through and ask them to attach it again. Do not guess what it showed.]',
+            };
             const imageId = imageIdFromFilename(part.filename);
-            if (!imageId) return null;
+            if (!imageId) return missing;
             const downloaded = await downloadAsBase64(
               supabaseClient,
               'images',
               imageStoragePath(conversation.user_id, conversation.id, imageId),
             );
-            if (!downloaded) return null;
+            if (!downloaded) return missing;
             return {
               ...part,
               mediaType: downloaded.mediaType,

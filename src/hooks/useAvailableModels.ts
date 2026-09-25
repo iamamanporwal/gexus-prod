@@ -12,9 +12,11 @@ const availableProvidersSchema = z.object({
 });
 
 // Which parametric model the picker starts on when nothing else is chosen.
-// Routed through OpenRouter, so it needs OPENROUTER_API_KEY — if that is unset
-// the hooks below fall back to the first model that is actually reachable.
-export const DEFAULT_PARAMETRIC_MODEL: Model = 'openai/gpt-5.6-sol';
+// Gemini 3.6 Flash: on the same photo-to-CAD request it produced an equally
+// good model in ~23s where Gemini 3.1 Pro took ~170s (Pro thinks at full depth
+// by default). Needs GOOGLE_API_KEY — if that is unset the hooks below fall
+// back to the first model that is actually reachable.
+export const DEFAULT_PARAMETRIC_MODEL: Model = 'google/gemini-3.6-flash';
 
 /**
  * The providers whose API keys are set on the server.

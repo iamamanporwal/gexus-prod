@@ -8,7 +8,7 @@ import {
   useAvailableParametricModels,
 } from '@/hooks/useAvailableModels';
 import { supabase, guestUserId } from '@/lib/db';
-import TextAreaChat from '@/components/TextAreaChat';
+import TextAreaChat, { type PromptExample } from '@/components/TextAreaChat';
 import { useQueryClient, useMutation } from '@tanstack/react-query';
 import { useState, useMemo, useEffect } from 'react';
 import { Model } from '@shared/types';
@@ -34,6 +34,31 @@ import { ensureInputRecords } from '@/lib/aiMessages';
 import { persistUserMessage } from '@/services/messageService';
 import { useAuth } from '@/contexts/AuthContext';
 import { REQUIRE_SIGN_IN_TO_GENERATE } from '@/config/access';
+
+// Landing-page starters for photo-to-CAD. Each one was run through the real
+// parametric endpoint with exactly this prompt and size before being listed,
+// so a first-time visitor's first click lands on something that works.
+// Images live in public/examples.
+const PHOTO_EXAMPLES: PromptExample[] = [
+  {
+    label: 'Bracket',
+    image: 'examples/bracket.jpg',
+    prompt: 'Make this reinforced L-bracket.',
+    sizeMm: 80,
+  },
+  {
+    label: 'Enclosure',
+    image: 'examples/enclosure.jpg',
+    prompt: 'Make this electronics enclosure with a separate lid.',
+    sizeMm: 120,
+  },
+  {
+    label: 'Knob',
+    image: 'examples/knob.jpg',
+    prompt: 'Make this control knob for a 6 mm D-shaft.',
+    sizeMm: 40,
+  },
+];
 
 export function PromptView() {
   const navigate = useNavigate();
@@ -298,6 +323,7 @@ export function PromptView() {
                   showPromptGenerator={true}
                   showFullLabels={true}
                   onTypeChange={handleTypeChange}
+                  examples={PHOTO_EXAMPLES}
                 />
               </SelectedItemsContext.Provider>
               <div className="relative">

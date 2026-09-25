@@ -86,6 +86,37 @@ interface TextAreaChatProps {
     id: string;
     user_id: string;
   };
+  /** One-click starters shown under an empty composer (parametric only). */
+  examples?: PromptExample[];
+}
+
+export type PromptExample = {
+  label: string;
+  /** Path under public/, resolved with publicPath(). JPEG, PNG or WebP. */
+  image: string;
+  prompt: string;
+  /** Pre-fills the overall-size field, in millimetres. */
+  sizeMm?: number;
+};
+
+// The overall size a user gives for an attached image, as a line the model
+// reads (PARAMETRIC_AGENT_PROMPT, "Reference images"). Photos carry no scale,
+// so this one number is what turns guessed dimensions into real ones. Kept in
+// the visible message text rather than hidden metadata so the user can see
+// exactly what was asked, and so it survives in the saved conversation.
+const MIN_SIZE_MM = 1;
+const MAX_SIZE_MM = 2000;
+
+function parseSizeMm(value: string): number | null {
+  const size = Number(value.trim().replace(',', '.'));
+  if (!Number.isFinite(size) || size < MIN_SIZE_MM || size > MAX_SIZE_MM) {
+    return null;
+  }
+  return Math.round(size * 10) / 10;
+}
+
+function sizeNote(sizeMm: number): string {
+  return `Overall size: longest side about ${sizeMm} mm.`;
 }
 
 // SVG Icon component for the quads/polys toggle
@@ -441,6 +472,54 @@ const VALID_IMAGE_FORMATS = [
   'image/webp',
 ];
 
+// Longest edge sent to the model. Vision models downsample to roughly this
+// anyway, so anything larger only costs upload time and request size.
+const MAX_IMAGE_EDGE = 1600;
+// Below this, an image that is already small enough in pixels is left alone.
+const REENCODE_ABOVE_BYTES = 2 * 1024 * 1024;
+
+/**
+ * Shrinks a phone-sized photo before upload. Without this a 12 MP photo goes
+ * up as-is: slow on mobile data, over the 20 MB Storage rule for the largest
+ * ones, and over Anthropic's 5 MB per-image limit, which fails the whole chat
+ * request. Re-encoded as JPEG on a white background (a transparent PNG would
+ * otherwise turn black). Falls back to the original file on any error.
+ */
+async function downscaleForModel(file: File): Promise<File> {
+  try {
+    const bitmap = await createImageBitmap(file);
+    const scale = Math.min(
+      1,
+      MAX_IMAGE_EDGE / Math.max(bitmap.width, bitmap.height),
+    );
+    if (scale === 1 && file.size <= REENCODE_ABOVE_BYTES) {
+      bitmap.close();
+      return file;
+    }
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.round(bitmap.width * scale);
+    canvas.height = Math.round(bitmap.height * scale);
+    const context = canvas.getContext('2d');
+    if (!context) {
+      bitmap.close();
+      return file;
+    }
+    context.fillStyle = '#ffffff';
+    context.fillRect(0, 0, canvas.width, canvas.height);
+    context.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+    bitmap.close();
+    const blob = await new Promise<Blob | null>((resolve) =>
+      canvas.toBlob(resolve, 'image/jpeg', 0.9),
+    );
+    if (!blob) return file;
+    return new File([blob], file.name.replace(/\.[^.]+$/, '') + '.jpg', {
+      type: 'image/jpeg',
+    });
+  } catch {
+    return file;
+  }
+}
+
 const getMeshFileType = (filename: string): MeshFileType => {
   const lowerFilename = filename.toLowerCase();
   if (lowerFilename.endsWith('.stl')) return 'stl';
@@ -475,10 +554,13 @@ function TextAreaChat({
   showFullLabels = false,
   onTypeChange,
   conversation,
+  examples,
 }: TextAreaChatProps) {
   const [isFocused, setIsFocused] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [input, setInput] = useState('');
+  const [sizeMm, setSizeMm] = useState('');
+  const [loadingExample, setLoadingExample] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [isDragHover, setIsDragHover] = useState(false);
   const [isGeneratingPrompt, setIsGeneratingPrompt] = useState(false);
@@ -804,7 +886,11 @@ function TextAreaChat({
       return;
     }
 
-    const text = input.trim();
+    const parsedSize =
+      type === 'parametric' && images.length > 0 ? parseSizeMm(sizeMm) : null;
+    const text = [input.trim(), parsedSize ? sizeNote(parsedSize) : '']
+      .filter(Boolean)
+      .join('\n\n');
     const parts: AppUIMessage['parts'] = [];
 
     if (text) {
@@ -861,6 +947,7 @@ function TextAreaChat({
     }
     onSubmit(parts);
     setInput('');
+    setSizeMm('');
     setImages([]);
     setMesh(null);
     setMeshBoundingBox(null);
@@ -962,7 +1049,7 @@ function TextAreaChat({
     },
   });
 
-  const addItems = async (files: FileList) => {
+  const addItems = async (files: FileList | File[]) => {
     const newItems = Array.from(files);
     let hasSmallImages = false;
     let hasLargeImages = false;
@@ -1129,14 +1216,15 @@ function TextAreaChat({
     });
 
     // Upload each valid image immediately
-    filteredImages.forEach(async (file) => {
+    filteredImages.forEach(async (originalFile) => {
       const tempId = crypto.randomUUID();
-      const url = URL.createObjectURL(file);
+      const url = URL.createObjectURL(originalFile);
       setImages((prevImages) => [
         ...prevImages,
         { id: tempId, isUploading: true, source: 'upload', url },
       ]);
       try {
+        const file = await downscaleForModel(originalFile);
         const signedUrl = await uploadImageAsync({ file, id: tempId });
         URL.revokeObjectURL(url);
         setImages((prevImages) =>
@@ -1153,6 +1241,36 @@ function TextAreaChat({
         );
       }
     });
+  };
+
+  // Starters fill the composer — image, prompt and size — and stop there.
+  // Sending stays a deliberate press on the normal path, so an example goes
+  // through the same upload, sign-in wall and validation as anything else and
+  // the user sees exactly what will be asked before it is.
+  const applyExample = async (example: PromptExample) => {
+    if (loadingExample || isLoading || disabled) return;
+    setLoadingExample(example.label);
+    try {
+      const response = await fetch(publicPath(example.image));
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const blob = await response.blob();
+      const filename = example.image.split('/').pop() || 'example.jpg';
+      setImages([]);
+      setMesh(null);
+      await addItems([new File([blob], filename, { type: blob.type })]);
+      setInput(example.prompt);
+      setSizeMm(example.sizeMm ? String(example.sizeMm) : '');
+      textareaRef.current?.focus();
+    } catch (error) {
+      console.error('Failed to load example:', error);
+      toast({
+        title: "Couldn't load that example",
+        description: 'Please try again, or attach your own image.',
+        variant: 'destructive',
+      });
+    } finally {
+      setLoadingExample(null);
+    }
   };
 
   const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
@@ -1555,6 +1673,36 @@ function TextAreaChat({
                       </motion.div>
                     ))}
                   </AnimatePresence>
+                  {type === 'parametric' && images.length > 0 && (
+                    <label className="ml-2 flex flex-shrink-0 items-center gap-1.5 self-center rounded-lg border border-adam-neutral-700 bg-adam-background-2 px-2 py-1 text-xs text-adam-text-secondary focus-within:border-adam-blue">
+                      <span className="whitespace-nowrap">Longest side</span>
+                      <input
+                        type="number"
+                        inputMode="decimal"
+                        min={MIN_SIZE_MM}
+                        max={MAX_SIZE_MM}
+                        step="any"
+                        value={sizeMm}
+                        onChange={(event) => setSizeMm(event.target.value)}
+                        onKeyDown={(event) => {
+                          if (event.key === 'Enter') {
+                            event.preventDefault();
+                            void handleSubmit();
+                          }
+                        }}
+                        placeholder="auto"
+                        aria-label="Longest side of the part, in millimetres (optional)"
+                        disabled={isLoading || disabled}
+                        className={cn(
+                          'w-14 bg-transparent text-right text-adam-text-primary outline-none [appearance:textfield] placeholder:text-adam-text-secondary [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none',
+                          sizeMm.trim() !== '' &&
+                            parseSizeMm(sizeMm) === null &&
+                            'text-red-400',
+                        )}
+                      />
+                      <span>mm</span>
+                    </label>
+                  )}
                 </div>
               )
             )}
@@ -1595,7 +1743,7 @@ function TextAreaChat({
           <Avatar className="mt-1 h-8 w-8">
             <div className="h-full w-full p-1.5">
               <img
-                src={publicPath('gexus-mark.svg')}
+                src={publicPath('LOGO.png')}
                 alt="GEXUS"
                 className="h-full w-full object-contain"
               />
@@ -1795,6 +1943,42 @@ function TextAreaChat({
           </div>
         </div>
       </div>
+      {examples &&
+        examples.length > 0 &&
+        type === 'parametric' &&
+        images.length === 0 &&
+        !mesh &&
+        !input.trim() && (
+          <div className="mt-4">
+            <p className="mb-2 text-center text-xs text-adam-text-secondary">
+              Try a photo of a part
+            </p>
+            <div className="grid grid-cols-3 gap-2 sm:gap-3">
+              {examples.map((example) => (
+                <button
+                  key={example.label}
+                  type="button"
+                  onClick={() => void applyExample(example)}
+                  disabled={!!loadingExample || isLoading || disabled}
+                  className="group/example relative flex flex-col items-center gap-1.5 rounded-xl border border-adam-neutral-700 bg-adam-background-2 p-2 text-xs text-adam-text-secondary transition-colors hover:border-adam-blue/60 hover:text-adam-text-primary disabled:opacity-50"
+                >
+                  <img
+                    src={publicPath(example.image)}
+                    alt=""
+                    loading="lazy"
+                    className="aspect-square w-full rounded-lg object-cover"
+                  />
+                  <span className="truncate">{example.label}</span>
+                  {loadingExample === example.label && (
+                    <div className="absolute inset-0 flex items-center justify-center rounded-xl bg-black/40">
+                      <Loader2 className="h-4 w-4 animate-spin text-white" />
+                    </div>
+                  )}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
     </div>
   );
 }

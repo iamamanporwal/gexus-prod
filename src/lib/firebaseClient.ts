@@ -372,9 +372,25 @@ const clientAdapter: FirestoreAdapter = {
       (filter) => filter.kind === 'eq' && filter.column === 'id',
     );
     if (idFilter && idFilter.kind === 'eq') {
-      const snapshot = await getDoc(
-        doc(db(), spec.table, String(idFilter.value)),
-      );
+      // A get on a document that does not exist yet is DENIED, not empty: the
+      // rules read `resource.data.user_id`, and `resource` is null for a
+      // missing document, so the rule errors and Firestore refuses the read.
+      // Every `upsert(..., { ignoreDuplicates: true })` probes a fresh id this
+      // way before writing it — the image record for each attachment
+      // (aiMessages.ensureInputRecords) and a new guest's profile — so the
+      // denial surfaced as "Missing or insufficient permissions" on every send
+      // with an image. Treat it as "no such row". A document that does exist
+      // and belongs to someone else is still protected: the write that follows
+      // is checked by the create/update rules and is refused there.
+      let snapshot;
+      try {
+        snapshot = await getDoc(doc(db(), spec.table, String(idFilter.value)));
+      } catch (error) {
+        if ((error as { code?: unknown })?.code === 'permission-denied') {
+          return [];
+        }
+        throw error;
+      }
       if (!snapshot.exists()) return [];
       const row: Row = { ...snapshot.data(), id: snapshot.id };
       for (const filter of spec.filters) {
